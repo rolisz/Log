@@ -14,7 +14,8 @@ def parseFile(queue,result_queue):
             file = queue.get(block=False)
             start_time = time.time()
             f = open("logs//"+file,encoding="utf-8")
-            size = defaultdict(lambda: 0)
+            me = defaultdict(lambda: 0)
+            other = defaultdict(lambda: 0)
             for message in yaml.load_all(f.read()):
                 try:
                     date = datetime.datetime.strptime(message[0],"%Y-%m-%d %H:%M:%S")
@@ -24,8 +25,15 @@ def parseFile(queue,result_queue):
                     except ValueError as e:
                         print("This one ain't good: "+message[0])
                         continue
-                size[date.strftime("%Y-%m-%d")] += len(message[2])
-            result_queue.put((file,len(size),sum(size.values())))
+                if message[1] == file[:-4]:
+                    other[date.strftime("%Y-%m-%d")] += len(message[2])
+                else:
+                    me[date.strftime("%Y-%m-%d")] += len(message[2])
+            days = len(me) if len(me) else len(other)
+            meCount = sum(me.values())
+            otherCount = sum(other.values())
+            ratio = meCount/otherCount if otherCount else 'Inf'
+            result_queue.put((file,days,meCount,otherCount,ratio))
             print(file,time.time() - start_time, "seconds")
         except Empty:
             break
@@ -44,17 +52,16 @@ if __name__ == '__main__':
 
     for p in processes:
         p.start()
-    print("started")
+    results = []
     while not rq.empty() or not q.empty():
         if not rq.empty():
-            print("smt")
-            print(rq.get(block=False))
+            results.append(rq.get(block=False))
         else:
             time.sleep(5)
     for p in processes:
         p.join()
-        print("joined")
-    print("Size:")
-
+    while not rq.empty():
+        results.append(rq.get(block=False))
+    pprint.pprint(results,width=200)
 
     print(time.time() - start_time, "seconds")
