@@ -16,7 +16,7 @@ parser.add_argument('--digsby','-d', action = "store", default = "Digsby Logs", 
 parser.add_argument('--trillian','-t', default = "Trillian", help = "Location of Trillian logs")
 parser.add_argument('--pidgin','-p', default = "Pidgin", help = "Location of Pidgin logs")
 parser.add_argument('--dest', default = "logs", help = "Location where to put parsed logs")
-parser.add_argument('--process', choices = types, nargs = '*', default = ["digsby","trillian","pidgin"])
+parser.add_argument('--process', choices = types, nargs = '*', default = ["pidgin"])
 parser.add_argument('--version', action = "version",  version='%(prog)s 0.2')
 
 args = parser.parse_args()

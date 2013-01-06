@@ -6,7 +6,7 @@ import datetime
 import os
 import time
 from multiprocessing import Process, Queue
-from queue import Empty
+from Queue import Empty
 
 def parseFile(queue,result_queue):
     while True:

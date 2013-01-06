@@ -26,9 +26,14 @@ def parse(folder = "Pidgin"):
             for line in f.readlines():
                 match = re.match('<font color=".+?"><font size="2">\((\d\d:\d\d\:\d\d [AP]M)\)</font> <b>(.+?)</b></font>(.+?)<br/>',line)
                 if match:
+                    m2 = re.match("<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'><span style='font-family: Arial; font-size: 10pt; color: #000000;'>(.+?)</span></body></html><br/>",match.groups()[2])
+                    matches = match.groups()
+                    print(m2)
+                    if m2:
+                        matches[2] = m2.groups()[0]
                     #print(match.groups())
                     try:
-                        dest.write(yaml.dump([name.groups()[2]+" "+match.groups()[0],match.groups()[1],match.groups()[2]], default_flow_style=False,explicit_start=True,allow_unicode=True))
+                        dest.write(yaml.dump([name.groups()[2]+" "+match.groups()[0],match.groups()[1],matches[2]], default_flow_style=False,explicit_start=True,allow_unicode=True))
                         count+=1
                     except Exception as e:
                         print("Pidgin:")

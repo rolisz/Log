@@ -4,7 +4,7 @@ import re
 from os.path import join, getsize
 import yaml
 import sys
-import urllib.parse
+import urllib
 import datetime
 
 def parse(folder = "Trillian"):
