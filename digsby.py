@@ -20,9 +20,9 @@ def parse(folder = "Digsby Logs"):
 
     for file in fileList:
         try:
-            f = open(file,encoding="utf-8")
+            f = open(file)
             name = re.match("Digsby Logs\\\\rolisz\\\\(.+?)\\\\rolisz(.+?)?\\\\(.+?)_(yahoo|gtalk|jabber)",file)
-            dest = open("logs\\"+name.groups()[2]+".txt","a",encoding="utf-8")
+            dest = open("logs\\"+name.groups()[2]+".txt","a")
             for line in f.readlines():
                 match = re.match('<div class=".+? message" .+? timestamp="(.+?)"><span class="buddy">(.+?)</span> <span class="msgcontent">(<span style=".+?">)?(.+?)</span>',line)
                 if match:

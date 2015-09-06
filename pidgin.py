@@ -20,17 +20,21 @@ def parse(folder = "Pidgin"):
 
     for file in fileList:
         try:
-            f = open(file,encoding="utf-8")
+            f = open(file)
             name = re.match("Pidgin\\\\logs\\\\.+?\\\\rolisz(.+?)?\\\\(.+?)\\\\(\d\d\d\d-\d\d-\d\d)(.+?)\.html",file)
-            dest = open("logs\\"+name.groups()[1]+".txt","a",encoding="utf-8")
+            dest = open("logs\\"+name.groups()[1]+".txt","a")
             for line in f.readlines():
                 match = re.match('<font color=".+?"><font size="2">\((\d\d:\d\d\:\d\d [AP]M)\)</font> <b>(.+?)</b></font>(.+?)<br/>',line)
                 if match:
-                    m2 = re.match("<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'><span style='font-family: Arial; font-size: 10pt; color: #000000;'>(.+?)</span></body></html><br/>",match.groups()[2])
-                    matches = match.groups()
-                    print(m2)
-                    if m2:
-                        matches[2] = m2.groups()[0]
+                    matches = list(match.groups())
+                    if 'span' in matches[2]:
+                        m2 = re.match("<span style='.+?'>(.+?)</span>",matches[2].strip())
+                        if m2:
+                            matches[2] = m2.groups()[0]
+                    if 'html' in matches[2]:
+                        m2 = re.search("<html .+?><body .+?><span style=.+?>(.+?)</span></body></html>",matches[2].strip())
+                        if m2:
+                            matches[2] = m2.groups()[0]
                     #print(match.groups())
                     try:
                         dest.write(yaml.dump([name.groups()[2]+" "+match.groups()[0],match.groups()[1],matches[2]], default_flow_style=False,explicit_start=True,allow_unicode=True))

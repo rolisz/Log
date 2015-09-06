@@ -3,4 +3,10 @@
 Digsby Logs/*
 Trillian/*
 Pidgin/*
+Yahoo/
 logs/*
+pip-selfcheck.json
+models/
+lib/
+include/
+bin/
