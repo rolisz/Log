@@ -5,6 +5,8 @@ import logging
 import datetime
 from bs4 import BeautifulSoup
 import urllib.parse
+import collections
+import itertools
 
 date_style = 'full'
 # date_style = 'timestamp'
@@ -64,7 +66,8 @@ class Parser(object):
             try:
                 conversations = self.parse_file(open(f))
                 if len(conversations):
-                    yield conversations
+                    print("cooonvooo")
+                    yield (self.parse_file_name(f), conversations)
             except UnicodeDecodeError as e:
                 logging.warning("Unicode !@#$ in file %s: %s", f, str(e))
             except IOError as e:
@@ -99,7 +102,7 @@ class Digsby(Parser):
 
     def parse_file_name(self, filename):
         # The contact name is written in the last folder, followed by _protocol
-        return os.path.split(os.path.split(filename)[0])[1].split("_")[0]
+        return "_".join(os.path.split(os.path.split(filename)[0])[1].split("_")[0:-1])
 
     regex = '<div class=".+? message" .+? timestamp="(.+?)"><span class="buddy">(.+?)</span> <span class="msgcontent">(.+?)</span>'
     filters = [HTMLParse, ISOTimer]
@@ -140,14 +143,19 @@ class Pidgin(Parser):
         return messages
 
 if __name__ == "__main__":
-    messages = []
-    for text in Digsby("./Digsby Logs"):
-        messages.append(text)
-    for text in Trillian("./Trillian"):
-        messages.append(text)
-    for text in Pidgin("./Pidgin"):
-        messages.append(text)
-    messages.sort(key=lambda x: (x[0]['contact'], x[0]['timestamp']))
+    messages = collections.defaultdict(list)
+    for contact, text in Digsby("./Digsby Logs"):
+        print(text)
+        messages[contact].append(text)
+    for contact, text in Trillian("./Trillian"):
+        messages[contact].append(text)
+    for contact, text in Trillian("./Trillian2"):
+        messages[contact].append(text)
+    for contact, text in Pidgin("./Pidgin"):
+        messages[contact].append(text)
+    for contact in messages:
+        messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
+        messages[contact].sort(key=lambda x: x['timestamp'])
     print(len(messages))
     f = open("./logs/messages.json", "w")
     json.dump(messages, f, indent=2, ensure_ascii=False)
