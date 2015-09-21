@@ -3,17 +3,25 @@ import json
 import re
 import logging
 import datetime
+import unicodedata
 from bs4 import BeautifulSoup
-import urllib.parse
+try:
+    import urllib.parse as urlparse
+except:
+    import urlparse
 import collections
 import itertools
 
 date_style = 'full'
 # date_style = 'timestamp'
 
+def remove_control_characters(s):
+    return "".join(ch for ch in s if unicodedata.category(ch)[0]!="C")
+
 class Parser(object):
-    def __init__(self, folder):
+    def __init__(self, folder=None, files=None):
         self.folder = folder
+        self.file_list = files
 
     def filter_func(self, filename):
         return True
@@ -50,14 +58,20 @@ class Parser(object):
         If filter_func is given, only the ones for which it returns true will be
         returned. It should take one parameter, the name of the file.
         """
-        for root, dirs, files in os.walk(self.folder):
-            for file in files:
-                f = os.path.join(root, file)
-                if self.filter_func(f):
-                    yield f
-            if '.git' in dirs:  # still needed?
-                logging.warning(dirs)
-                dirs.remove('.git')
+        if self.folder is not None:
+            for root, dirs, files in os.walk(self.folder):
+                for file in files:
+                    f = os.path.join(root, file)
+                    if self.filter_func(f):
+                        yield f
+                if '.git' in dirs:  # still needed?
+                    logging.warning(dirs)
+                    dirs.remove('.git')
+        elif self.file_list is not None:
+            for f in self.file_list:
+                yield f
+        else:
+            raise Exception("You didn't specify source files")
 
     def __iter__(self):
         for f in self.files():
@@ -66,7 +80,6 @@ class Parser(object):
             try:
                 conversations = self.parse_file(open(f))
                 if len(conversations):
-                    print("cooonvooo")
                     yield (self.parse_file_name(f), conversations)
             except UnicodeDecodeError as e:
                 logging.warning("Unicode !@#$ in file %s: %s", f, str(e))
@@ -80,14 +93,17 @@ def HTMLParse(msg):
     return msg
 
 def Unquote(msg):
-    msg['message'] = urllib.parse.unquote(msg['message'])
-    msg['contact'] = urllib.parse.unquote(msg['contact'])
+    msg['message'] = urlparse.unquote(msg['message'])
+    msg['contact'] = urlparse.unquote(msg['contact'])
     return msg
 
 def DateToTS(fmt):
     def inner(msg):
         dt = datetime.datetime.strptime(msg['timestamp'], fmt)
-        msg['timestamp'] = dt.timestamp()
+        try:
+            msg['timestamp'] = dt.timestamp()
+        except:
+            msg['timestamp'] = (dt - datetime.datetime(1970, 1, 1)).total_seconds()
         return msg
     return inner
 
@@ -97,6 +113,7 @@ def FloatTimestamp(msg):
 
 DateTimer = DateToTS("%d %b %Y %I:%M:%S %p")
 ISOTimer = DateToTS("%Y-%m-%d %H:%M:%S")
+USATimer = DateToTS("%m/%d/%Y, %I:%M %p")
 
 class Digsby(Parser):
 
@@ -142,21 +159,68 @@ class Pidgin(Parser):
         self.filters = old_filters
         return messages
 
+def NameToDate(line):
+    if line[0:2].isalpha() and line[4].isdigit() :
+        sp = line.split(",", 1)
+        date = datetime.datetime.strptime(sp[0], "%b %d")
+        date = date.replace(year=2015)
+        new_fmt = date.strftime("%m/%d/%Y")
+        return "%s,%s" % (new_fmt, sp[1])
+    return line
+
+class Whatsapp(Parser):
+
+    def parse_file_name(self, filename):
+        """Filename is of the form with "WhatsApp Chat with NAME.txt"""""
+        return filename[30:].split(".")[0]
+
+    regex = '^(\d{1,2}/\d{1,2}/\d{4}, \d{1,2}:\d{2} [AP]M) - (.+?): (.+?)$'
+    filters = [USATimer]
+
+    def parse_file(self, f):
+        messages = []
+        for line in f:
+            line = NameToDate(line)
+            match = re.match(self.regex, line)
+            if not match:
+                message['message'] += "\n"+line
+                continue
+            try:
+                message = {
+                    'timestamp':match.groups()[0],
+                    'contact': match.groups()[1],
+                    'message': match.groups()[2]
+                }
+                for msg_filter in self.filters:
+                    message = msg_filter(message)
+                if date_style == 'full':
+                    ts = datetime.datetime.fromtimestamp(message['timestamp'])
+                    message['timestamp'] = ts.isoformat()
+                messages.append(message)
+            except Exception as e:
+                logging.warning("Error in file %s at line %s: %s", f.name,
+                                line, str(e))
+        return messages
+
+
 if __name__ == "__main__":
     messages = collections.defaultdict(list)
-    for contact, text in Digsby("./Digsby Logs"):
-        print(text)
-        messages[contact].append(text)
-    for contact, text in Trillian("./Trillian"):
-        messages[contact].append(text)
-    for contact, text in Trillian("./Trillian2"):
-        messages[contact].append(text)
-    for contact, text in Pidgin("./Pidgin"):
+    # for contact, text in Digsby("./Digsby Logs"):
+    #     messages[contact].append(text)
+    # for contact, text in Trillian("./Trillian"):
+    #     messages[contact].append(text)
+    # for contact, text in Trillian("./Trillian2"):
+    #     messages[contact].append(text)
+    # for contact, text in Pidgin("./Pidgin"):
+    #     messages[contact].append(text)
+    for contact, text in Whatsapp("./Whatsapp"):
         messages[contact].append(text)
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
-    print(len(messages))
-    f = open("./logs/messages.json", "w")
-    json.dump(messages, f, indent=2, ensure_ascii=False)
-    f.close()
+    for k in messages:
+        print k, len(messages[k])
+    # print(messages['Eliza'])
+    # f = open("./logs/messages.json", "w")
+    # json.dump(messages, f, indent=2, ensure_ascii=False)
+    # f.close()
