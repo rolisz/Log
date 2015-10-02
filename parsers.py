@@ -12,8 +12,9 @@ except:
 import collections
 import itertools
 
-date_style = 'full'
+# date_style = 'full'
 # date_style = 'timestamp'
+date_style = 'datetime'
 
 def remove_control_characters(s):
     return "".join(ch for ch in s if unicodedata.category(ch)[0]!="C")
@@ -46,6 +47,11 @@ class Parser(object):
                 if date_style == 'full':
                     ts = datetime.datetime.fromtimestamp(message['timestamp'])
                     message['timestamp'] = ts.isoformat()
+                if date_style == 'timestamp':
+                    try:
+                        message['timestamp'] = message['timestamp'].timestamp()
+                    except:
+                        message['timestamp'] = (message['timestamp'] - datetime.datetime(1970, 1, 1)).total_seconds()
                 messages.append(message)
             except Exception as e:
                 logging.warning("Error in file %s at line %s: %s", f.name,
@@ -100,10 +106,11 @@ def Unquote(msg):
 def DateToTS(fmt):
     def inner(msg):
         dt = datetime.datetime.strptime(msg['timestamp'], fmt)
-        try:
-            msg['timestamp'] = dt.timestamp()
-        except:
-            msg['timestamp'] = (dt - datetime.datetime(1970, 1, 1)).total_seconds()
+        msg['timestamp'] = dt
+        # try:
+        #     msg['timestamp'] = dt.timestamp()
+        # except:
+        #     msg['timestamp'] = (dt - datetime.datetime(1970, 1, 1)).total_seconds()
         return msg
     return inner
 
@@ -166,6 +173,7 @@ def NameToDate(line):
         date = date.replace(year=2015)
         new_fmt = date.strftime("%m/%d/%Y")
         return "%s,%s" % (new_fmt, sp[1])
+    line = re.sub("^(\d{1,2}/\d{1,2}/)(\d\d),", "\\g<1>20\\2,", line)
     return line
 
 class Whatsapp(Parser):
@@ -174,7 +182,7 @@ class Whatsapp(Parser):
         """Filename is of the form with "WhatsApp Chat with NAME.txt"""""
         return filename[30:].split(".")[0]
 
-    regex = '^(\d{1,2}/\d{1,2}/\d{4}, \d{1,2}:\d{2} [AP]M) - (.+?): (.+?)$'
+    regex = '^(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2} [AP]M) - (.+?): (.+?)$'
     filters = [USATimer]
 
     def parse_file(self, f):
@@ -196,12 +204,20 @@ class Whatsapp(Parser):
                 if date_style == 'full':
                     ts = datetime.datetime.fromtimestamp(message['timestamp'])
                     message['timestamp'] = ts.isoformat()
+                if date_style == 'timestamp':
+                    try:
+                        message['timestamp'] = message['timestamp'].timestamp()
+                    except:
+                        message['timestamp'] = (message['timestamp'] - datetime.datetime(1970, 1, 1)).total_seconds()
                 messages.append(message)
             except Exception as e:
                 logging.warning("Error in file %s at line %s: %s", f.name,
                                 line, str(e))
         return messages
 
+    def filter_func(self, filename):
+        root, ext = os.path.splitext(filename)
+        return ext == '.txt'
 
 if __name__ == "__main__":
     messages = collections.defaultdict(list)
