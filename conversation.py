@@ -20,7 +20,6 @@ class Conversation(object):
             except KeyError:
                 logging.warning("Couldn't identify conversation participants: %s",
                                 contacts)
-                print messages
         self.messages = messages
 
     def _segment(self, break_length):
@@ -92,11 +91,11 @@ if __name__ == "__main__":
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
-    for k in messages:
-        print k, len(messages[k])
-    for k in messages:
-        print k, Conversation(messages[k]).reply_ratio()
-    for k in messages:
-        print k, Conversation(messages[k]).char_ratio()
-    for k in messages:
-        print k, len(Conversation(messages[k]).days().values()[-1])
+    # for k in messages:
+    #     print k, len(messages[k])
+    # for k in messages:
+    #     print k, Conversation(messages[k]).reply_ratio()
+    # for k in messages:
+    #     print k, Conversation(messages[k]).char_ratio()
+    # for k in messages:
+    #     print k, len(Conversation(messages[k]).days().values()[-1])

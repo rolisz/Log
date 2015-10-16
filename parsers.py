@@ -180,7 +180,7 @@ class Whatsapp(Parser):
 
     def parse_file_name(self, filename):
         """Filename is of the form with "WhatsApp Chat with NAME.txt"""""
-        return filename[30:].split(".")[0]
+        return filename[31:].split(".")[0]
 
     regex = '^(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2} [AP]M) - (.+?): (.+?)$'
     filters = [USATimer]
@@ -234,8 +234,8 @@ if __name__ == "__main__":
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
-    for k in messages:
-        print k, len(messages[k])
+    # for k in messages:
+    #     print k, len(messages[k])
     # print(messages['Eliza'])
     # f = open("./logs/messages.json", "w")
     # json.dump(messages, f, indent=2, ensure_ascii=False)
