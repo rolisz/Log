@@ -51,10 +51,7 @@ for i, k in enumerate(messages):
         )
     )
     p.line('x', 'y', source=source, color=colors[i], line_width=2)
-    if 'Ruxi' in k:
-        p.circle('x', 'y', source=source, color=colors[i],legend=k, size=8)
-    else:
-        p.circle('x', 'y', source=source, color=colors[i], size=8)
+    p.circle('x', 'y', source=source, color=colors[i],legend=k, size=8)
 
 
 

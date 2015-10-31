@@ -1,11 +1,10 @@
 <html>
     <head>
-
-
-<link href="./libs/c3.min.css" rel="stylesheet" type="text/css">
+<link href="./libs/dc.css" rel="stylesheet" type="text/css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
 
-<script src="./libs/c3.js"></script>
+<script src="./libs/crossfilter.min.js"></script>
+<script src="./libs/dc.min.js"></script>
 
     </head>
     <body>
@@ -13,49 +12,86 @@
 
 
     <script>
-    var request = new XMLHttpRequest();
-    request.open('GET', './replies.json', true);
-
-    request.onload = function() {
-        if (request.status >= 200 && request.status < 400) {
-            // Success!
-            var data = JSON.parse(request.responseText);
-            console.log(data);
-            pers1 = data.Pers1;
-            var chart = c3.generate({
-                bindto: '#chart',
-                data: {
-                    x: 'x',
-                    xFormat: '%Y-%m-%dT%H:%M:%S',
-                    columns: [
-                        ['x'].concat(pers1.x),
-                        ['Pers'].concat(pers1.y)
-                    ]
-                },
-                 axis: {
-                    x: {
-                        type: 'timeseries',
-                        tick: {
-                            format: '%Y-%m-%dT%H:%M:%s'
-                        }
-                    }
-                },
-                zoom: {
-                    enabled: true
-                }
-            });
-        } else {
-            // We reached our target server, but it returned an error
-            console.log(request);
+    var data
+    var moveChart = dc.lineChart('#chart');
+    d3.json("./replies.json", function(error, json) {
+        if (error) {
+            return console.warn(error);
         }
-    };
+        data = json["Ruxi Badalan"]
+        var dateFormat = d3.time.format.iso
+        var dayFormat = d3.time.format('%x')
+        var numberFormat = d3.format('d');
+        console.log(data)
+        data.forEach(function (d) {
+            d.dd = dateFormat.parse(d.timestamp);
+            d.month = d3.time.month(d.dd); // pre-calculate month for better performance
+            d.day = d3.time.day(d.dd);
+            d.hour = d3.time.hour(d.dd);
+        });
 
-    request.onerror = function() {
-        // There was a connection error of some sort
-    };
+        ndx = crossfilter(data);
+        all = ndx.groupAll();
+        
+        moveMonths = ndx.dimension(function (d) {
+            return d.month;
+        });
+        moveDays = ndx.dimension(function(d) {
+            return d.day;
+        })
+        moveHours = ndx.dimension(function(d) {
+            return d.hour;
+        })
 
-    request.send();
+		month_lengths = moveMonths.group().reduceSum(function(d) { return d.length})
+		day_lengths = moveDays.group().reduceSum(function(d) { return d.length})
+        hour_lengths = moveHours.group().reduceSum(function(d) { return d.length})
+		moveChart 
+			.width(990)
+			.height(200)
+			.transitionDuration(0)
+			.margins({top: 30, right: 50, bottom: 25, left: 40})
+			.dimension(moveMonths)
+			.mouseZoomable(true)
+			.x(d3.time.scale().domain([new Date(2015, 1, 1), new Date(2015, 11, 31)]))
+			.round(d3.time.month.round)
+			.xUnits(d3.time.months)
+			.elasticY(true)
+			.renderHorizontalGridLines(true)
+                   .legend(dc.legend().x(800).y(10).itemHeight(13).gap(5))
+        .brushOn(false)
+        // Add the base layer of the stack with group. The second parameter specifies a series name for use in the
+        // legend.
+        // The `.valueAccessor` will be used for the base layer
+        .group(month_lengths, 'Month lenghts')
+        .valueAccessor(function (d) {
+            return d.value;
+        })
+        // Title can be called by any stack layer.
+        .title(function (d) {
+            var value = d.value;
+            if (isNaN(value)) {
+                value = 0;
+            }
+            return dayFormat(d.key) + '\n' + numberFormat(value);
+        }).on('zoomed', function(chart, filter) {
+            console.log(chart, filter)   
+            var range = chart.x().domain()
+            var diff = range[1] - range[0]
+            if (diff < 1000*3600*24*10) {
+                chart.dimension(moveHours)
+                chart.group(hour_lengths)
+            } else if (diff < 1000*3600*24*30*8) {
+                chart.dimension(moveDays)
+                chart.group(day_lengths)
+            } else {
+                chart.dimension(moveMonths)
+                chart.group(month_lengths)
+            }
+        });
 
+        dc.renderAll();
+    });
 </script>
     </body>
 </html>

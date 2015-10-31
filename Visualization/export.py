@@ -22,7 +22,10 @@ data = {}
 
 for k in messages:
     data[k] = {}
-    data[k]['x'] = [x['timestamp'].isoformat() for x in messages[k]]
-    data[k]['y'] = [len(x['message']) for x in messages[k]]
+    timestamps = collections.defaultdict(int)
+    for x in messages[k]:
+        isofmt =x['timestamp'].isoformat()
+        timestamps[isofmt] += len(x['message'])
+    data[k] = [{'timestamp': k, 'length': v} for k,v  in timestamps.items()]
 
-json.dump(data, output_file)
+json.dump(data, output_file, indent=2)
