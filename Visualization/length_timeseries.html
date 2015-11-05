@@ -12,83 +12,102 @@
 
 
     <script>
+    function generateCharts(data, aggregation) {
+        groups = []
+        charts = []
+        dims = []
+        for (var property in data) {
+                    if (data.hasOwnProperty(property)) {
+                        partner = data[property]
+                        partner.forEach(function (d) {
+                            d.dd = dateFormat.parse(d.timestamp);
+                            d.month = d3.time.month(d.dd); 
+                            d.day = d3.time.day(d.dd);
+                            d.hour = d3.time.hour(d.dd);
+                        });
+
+                    var ndx = crossfilter(partner);
+
+                    var dim = ndx.dimension(function (d) {
+                        return d[aggregation]
+                    });
+
+                    lengths = dim.group().reduceSum(function(d) { return d.length})
+                    charts.push(dc.lineChart(moveChart)
+                                    .group(lengths, property)
+                                    .dimension(dim)
+                                    .title(function (d) {
+                                        console.log(d)
+                                        var value = d.value;
+                                        str = property + '\n' + dayFormat(d.key) + '\n' + numberFormat(value);
+                                        console.log(str)
+                                            return str
+
+                                    })
+                    )
+                    dims.push(dim)
+                    groups.push(lengths)
+                }
+        }
+        return [charts, groups, dims]
+    }
+
+    var dateFormat = d3.time.format.iso
+    var dayFormat = d3.time.format('%x')
+    var numberFormat = d3.format('d');
     var data
-    var moveChart = dc.lineChart('#chart');
+    var moveChart = dc.compositeChart('#chart');
+    var allData
     d3.json("./replies.json", function(error, json) {
         if (error) {
             return console.warn(error);
         }
-        data = json["Ruxi Badalan"]
-        var dateFormat = d3.time.format.iso
-        var dayFormat = d3.time.format('%x')
-        var numberFormat = d3.format('d');
-        console.log(data)
-        data.forEach(function (d) {
-            d.dd = dateFormat.parse(d.timestamp);
-            d.month = d3.time.month(d.dd); // pre-calculate month for better performance
-            d.day = d3.time.day(d.dd);
-            d.hour = d3.time.hour(d.dd);
-        });
 
-        ndx = crossfilter(data);
-        all = ndx.groupAll();
-        
-        moveMonths = ndx.dimension(function (d) {
-            return d.month;
-        });
-        moveDays = ndx.dimension(function(d) {
-            return d.day;
-        })
-        moveHours = ndx.dimension(function(d) {
-            return d.hour;
-        })
+        values = generateCharts(json, "day")
+        charts = values[0]
+        groups = values[1]
+        dims = values[2]
 
-		month_lengths = moveMonths.group().reduceSum(function(d) { return d.length})
-		day_lengths = moveDays.group().reduceSum(function(d) { return d.length})
-        hour_lengths = moveHours.group().reduceSum(function(d) { return d.length})
+        allData = json
 		moveChart 
 			.width(990)
 			.height(200)
+            .zoomScale([1,800])
+            .zoomOutRestrict(true)
 			.transitionDuration(0)
 			.margins({top: 30, right: 50, bottom: 25, left: 40})
-			.dimension(moveMonths)
 			.mouseZoomable(true)
 			.x(d3.time.scale().domain([new Date(2015, 1, 1), new Date(2015, 11, 31)]))
 			.round(d3.time.month.round)
 			.xUnits(d3.time.months)
 			.elasticY(true)
 			.renderHorizontalGridLines(true)
-                   .legend(dc.legend().x(800).y(10).itemHeight(13).gap(5))
+            .keyAccessor(function(d) {
+                return d.key;
+            })
+            .legend(dc.legend().x(900).y(10).itemHeight(13).gap(5))
+            .valueAccessor(function (d) {
+                return d.value;
+            })
+            .compose(charts)
+            .shareColors(true)
+            .on('zoomed', function(chart, filter) {
+                var range = chart.x().domain()
+                var diff = range[1] - range[0]
+                if (diff < 1000*3600*24*10) {
+                    aggregate = "hour"
+                } else if (diff < 1000*3600*24*30*8) {
+                    aggregate = "day"
+                } else {
+                    aggregate = "month"
+                }
+                values = generateCharts(json, aggregate)
+                charts = values[0]
+                groups = values[1]
+                dims = values[2]
+                chart.compose(charts).render()
+            })
         .brushOn(false)
-        // Add the base layer of the stack with group. The second parameter specifies a series name for use in the
-        // legend.
-        // The `.valueAccessor` will be used for the base layer
-        .group(month_lengths, 'Month lenghts')
-        .valueAccessor(function (d) {
-            return d.value;
-        })
-        // Title can be called by any stack layer.
-        .title(function (d) {
-            var value = d.value;
-            if (isNaN(value)) {
-                value = 0;
-            }
-            return dayFormat(d.key) + '\n' + numberFormat(value);
-        }).on('zoomed', function(chart, filter) {
-            console.log(chart, filter)   
-            var range = chart.x().domain()
-            var diff = range[1] - range[0]
-            if (diff < 1000*3600*24*10) {
-                chart.dimension(moveHours)
-                chart.group(hour_lengths)
-            } else if (diff < 1000*3600*24*30*8) {
-                chart.dimension(moveDays)
-                chart.group(day_lengths)
-            } else {
-                chart.dimension(moveMonths)
-                chart.group(month_lengths)
-            }
-        });
 
         dc.renderAll();
     });

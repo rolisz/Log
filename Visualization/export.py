@@ -27,5 +27,6 @@ for k in messages:
         isofmt =x['timestamp'].isoformat()
         timestamps[isofmt] += len(x['message'])
     data[k] = [{'timestamp': k, 'length': v} for k,v  in timestamps.items()]
+    data[k] = sorted(data[k], key=lambda x: x['timestamp'])
 
 json.dump(data, output_file, indent=2)
