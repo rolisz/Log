@@ -36,14 +36,14 @@
                     charts.push(dc.lineChart(moveChart)
                                     .group(lengths, property)
                                     .dimension(dim)
-                                    .title(function (d) {
+                                    .transitionDuration(0)
+                                    .title((function(name) { return function (d) {
                                         console.log(d)
                                         var value = d.value;
-                                        str = property + '\n' + dayFormat(d.key) + '\n' + numberFormat(value);
+                                        str = name + '\n' + dayFormat(d.key) + '\n' + numberFormat(value);
                                         console.log(str)
-                                            return str
-
-                                    })
+                                        return str
+                                    }})(property))
                     )
                     dims.push(dim)
                     groups.push(lengths)
@@ -67,13 +67,13 @@
         charts = values[0]
         groups = values[1]
         dims = values[2]
+        currentGroup = "day"
 
         allData = json
 		moveChart 
 			.width(990)
 			.height(200)
             .zoomScale([1,800])
-            .zoomOutRestrict(true)
 			.transitionDuration(0)
 			.margins({top: 30, right: 50, bottom: 25, left: 40})
 			.mouseZoomable(true)
@@ -91,6 +91,7 @@
             })
             .compose(charts)
             .shareColors(true)
+            .shareTitle(false)
             .on('zoomed', function(chart, filter) {
                 var range = chart.x().domain()
                 var diff = range[1] - range[0]
@@ -101,11 +102,16 @@
                 } else {
                     aggregate = "month"
                 }
-                values = generateCharts(json, aggregate)
-                charts = values[0]
-                groups = values[1]
-                dims = values[2]
-                chart.compose(charts).render()
+                console.log(aggregate)
+                if (aggregate != currentGroup) {
+                    values = generateCharts(json, aggregate)
+                    charts = values[0]
+                    groups = values[1]
+                    dims = values[2]
+                    //chart.selectAll('g .sub').remove()
+                    chart.compose(charts).render()
+                    currentGroup = aggregate
+                }
             })
         .brushOn(false)
 
