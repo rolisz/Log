@@ -1,0 +1,103 @@
+<html>
+    <head>
+<link href="./libs/nv.d3.min.css" rel="stylesheet" type="text/css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+
+<script src="./libs/crossfilter.min.js"></script>
+<script src="./libs/nv.d3.min.js"></script>
+
+    </head>
+    <body>
+
+        <div id='chart'>
+              <svg style='height:500px'> </svg>
+        </div>
+
+    <script>
+
+    var dateFormat = d3.time.format.iso
+    var dayFormat = d3.time.format('%x')
+    d3.json("./replies.json", function(error, json) {
+        if (error) {
+            return console.warn(error);
+        }
+        data = json["Roda"]
+        data.forEach(function (d) {
+            d.dd = dateFormat.parse(d.timestamp);
+            d.month = d3.time.month(d.dd); // pre-calculate month for better performance
+            d.day = d3.time.day(d.dd);
+            d.hour = d3.time.hour(d.dd);
+        });
+        ndx = crossfilter(data);
+        all = ndx.groupAll();
+        
+        moveMonths = ndx.dimension(function (d) {
+            return d.month;
+        });
+        moveDays = ndx.dimension(function(d) {
+            return d.day;
+        })
+        moveHours = ndx.dimension(function(d) {
+            return d.hour;
+        })
+
+		month_lengths = moveMonths.group().reduceSum(function(d) { return d.length})
+		day_lengths = moveDays.group().reduceSum(function(d) { return d.length})
+        hour_lengths = moveHours.group().reduceSum(function(d) { return d.length})
+        data = [{values: day_lengths.all(), key: "Ruxi" , color:"#ff7f0e"}]
+        /*These lines are all chart setup.  Pick and choose which chart features you want to utilize. */
+        nv.addGraph(function() {
+        var chart = nv.models.lineChart()
+                        .margin({left: 100})  //Adjust chart margins to give the x-axis some breathing room.
+                        .x(function(d) { return d.key; })
+                        .y(function(d) { return d.value; })
+                        .useInteractiveGuideline(true)  //We want nice looking tooltips and a guideline!
+                        .showLegend(true)       //Show the legend, allowing users to turn on/off line series.
+                        .showYAxis(true)        //Show the y-axis
+                        .showXAxis(true)        //Show the x-axis
+        ;
+        
+        chart.xAxis     //Chart x-axis settings
+            .axisLabel('Time (ms)')
+            .tickFormat(function (d) { return dayFormat(new Date(d))});
+        
+        chart.yAxis     //Chart y-axis settings
+            .axisLabel('Voltage (v)')
+            .tickFormat(d3.format('.02f'));
+        
+        var myData = sinAndCos()
+        
+        d3.select('#chart svg')    //Select the <svg> element you want to render the chart in.   
+            .datum(data)         //Populate the <svg> element with chart data...
+            .call(chart);          //Finally, render the chart!
+        
+        //Update the chart when window resizes.
+        nv.utils.windowResize(function() { chart.update() });
+        return chart;
+        });
+    })
+        /************************************** * Simple test data generator
+        */
+        function sinAndCos() {
+        var sin = [],sin2 = [],
+            cos = [];
+        
+        //Data is represented as an array of {x,y} pairs.
+        for (var i = 0; i < 100; i++) {
+            sin.push({timestamp: i, length: Math.sin(i/10)});
+        }
+        
+        //Line chart data should be sent as an array of series objects.
+        return [
+            {
+            values: sin,      //values - represents the array of {x,y} data points
+            key: 'Sine Wave', //key  - the name of the series.
+            color: '#ff7f0e'  //color - optional: choose your own line color.
+            },
+        ];
+        }
+
+</script>
+    </body>
+</html>
+
