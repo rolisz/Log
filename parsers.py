@@ -12,9 +12,9 @@ except:
 import collections
 import itertools
 
-# date_style = 'full'
+date_style = 'full'
 # date_style = 'timestamp'
-date_style = 'datetime'
+# date_style = 'datetime'
 
 def remove_control_characters(s):
     return "".join(ch for ch in s if unicodedata.category(ch)[0]!="C")
@@ -219,7 +219,78 @@ class Whatsapp(Parser):
         root, ext = os.path.splitext(filename)
         return ext == '.txt'
 
+class Facebook(Parser):
+
+    def __iter__(self):
+        for filename in self.files():
+            with open(filename) as f:
+                file_content = f.read()
+            soup = BeautifulSoup(file_content, 'lxml')
+            logging.info("Finished loading HTML file %s", filename)
+            threads = soup.find_all(class_='thread')
+            for thread in threads:
+                result = self.parse_thread(thread)
+                if result:
+                    yield result
+
+    def parse_thread(self, thread):
+        it = iter(thread.children)
+        # First child is just the names concatenated
+        first = next(it)
+        contacts = set(first.string.strip().split(","))
+        if len(contacts) > 2:
+            logging.info("Group chat %s. Skipping", contacts)
+            return
+        p1, p2 = contacts
+        other = p1.strip() if "Roland" in p2 else p2.strip()
+        # After that the children are: message_header, new_line,
+        # message in a p, new_line
+        messages = []
+        errors = 0
+        for header, m1, message, m2 in zip(it, it, it, it):
+            try:
+                user = header.find(class_='user').string.strip()
+                contacts.add(user)
+            except Exception as e:
+                logging.warning("Couldn't parse user %s because %s", header, e)
+                errors +=1
+                continue
+            try:
+                date = header.find(class_='meta').string.strip()[:-7]
+                date = datetime.datetime.strptime(date, "%A, %B %d, %Y at %I:%M%p")
+            except Exception as e:
+                logging.warning("Couldn't parse date %s because %s", header, e)
+                errors +=1
+                continue
+            try:
+                message = message.string.strip()
+            except Exception as e:
+                logging.warning("Couldn't parse message %s because %s", message, e)
+                print(m1,m2)
+                errors +=1
+                continue
+            message = {
+                'timestamp': date,
+                'contact': user,
+                'message': message
+            }
+            if date_style == 'full':
+                message['timestamp'] = date.isoformat()
+            if date_style == 'timestamp':
+                message['timestamp'] = date.timestamp()
+            messages.append(message)
+            if errors > 15:
+                logging.error("Too many errors for %s", other)
+                break
+        if len(contacts) == 1:
+            logging.info("Single contact %s with %d messages", contacts, len(messages))
+        if len(contacts) > 2:
+            logging.info("Multiple aliases: %s", contacts)
+        return other, reversed(messages)
+
+
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     messages = collections.defaultdict(list)
     # for contact, text in Digsby("./Digsby Logs"):
     #     messages[contact].append(text)
@@ -229,7 +300,9 @@ if __name__ == "__main__":
     #     messages[contact].append(text)
     # for contact, text in Pidgin("./Pidgin"):
     #     messages[contact].append(text)
-    for contact, text in Whatsapp("./Whatsapp"):
+    # for contact, text in Whatsapp("./Whatsapp"):
+    #     messages[contact].append(text)
+    for contact, text in Facebook(files=["./Facebook/cleaned.html"]):
         messages[contact].append(text)
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
@@ -237,6 +310,6 @@ if __name__ == "__main__":
     # for k in messages:
     #     print k, len(messages[k])
     # print(messages['Eliza'])
-    # f = open("./logs/messages.json", "w")
-    # json.dump(messages, f, indent=2, ensure_ascii=False)
-    # f.close()
+    f = open("./logs/messages.json", "w")
+    json.dump(messages, f, indent=2, ensure_ascii=False)
+    f.close()

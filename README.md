@@ -11,11 +11,19 @@ Roadmap
    * Process Digsby logs
    * Process Trillian logs
    * Process Pidgin logs
+   * Process Whatsapp emailed chats
+   * Process Facebook takeout data
+   * Process Hangouts takeout data
 2. Store the logs as efficiently as possible
 3. Make pretty graphs out of evolution of most popular contacts
 4. Most common words
 5. Figure out clusters in my contacts
 6. To infinity and beyond
+
+Instructions 
+------------
+Facebook messages from the takeout data should be prettified. The HTML output is
+more consistent then and easier to parse. 
 
 License
 ======
