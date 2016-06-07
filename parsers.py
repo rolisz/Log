@@ -1,9 +1,11 @@
 import os
+import warnings
 import json
 import re
 import logging
 import datetime
 import unicodedata
+import traceback
 from bs4 import BeautifulSoup
 try:
     import urllib.parse as urlparse
@@ -40,13 +42,27 @@ class Parser(object):
                 message = {
                     'timestamp':match.groups()[0],
                     'contact': match.groups()[1],
-                    'message': match.groups()[2]
+                    'message': match.groups()[2],
+                    'source': self.__class__.__name__
                 }
+                file_name = f.name.lower()
+                if 'gmail' in file_name or 'google' in file_name:
+                    message['protocol'] = 'Hangouts'
+                elif 'facebook' in file_name:
+                    message['protocol'] = 'Facebook'
+                elif 'yahoo' in file_name:
+                    message['protocol'] = 'Yahoo'
+                else:
+                    print(file_name)
                 for msg_filter in self.filters:
                     message = msg_filter(message)
                 if date_style == 'full':
-                    ts = datetime.datetime.fromtimestamp(message['timestamp'])
-                    message['timestamp'] = ts.isoformat()
+                    try:
+                        message['timestamp'] = datetime.datetime.fromtimestamp(message['timestamp'])
+                    except:
+                        pass
+                    finally:
+                        message['timestamp'] = message['timestamp'].isoformat()
                 if date_style == 'timestamp':
                     try:
                         message['timestamp'] = message['timestamp'].timestamp()
@@ -54,8 +70,8 @@ class Parser(object):
                         message['timestamp'] = (message['timestamp'] - datetime.datetime(1970, 1, 1)).total_seconds()
                 messages.append(message)
             except Exception as e:
-                logging.warning("Error in file %s at line %s: %s", f.name,
-                                line, str(e))
+                logging.warning("Error in file %s at line %s: %s because %s", f.name,
+                                line, str(e), traceback.format_exc())
         return messages
 
     def files(self):
@@ -93,6 +109,9 @@ class Parser(object):
                 logging.warning("Can't open file %s: %s", f, str(e))
                 continue
 
+warnings.filterwarnings('ignore', ".+ looks like a URL. Beautiful Soup is not an HTTP client. .*")
+warnings.filterwarnings('ignore', ".+ looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful .*")
+
 def HTMLParse(msg):
     soup = BeautifulSoup(msg['message'], 'html.parser')
     msg['message'] = soup.get_text()
@@ -120,6 +139,7 @@ def FloatTimestamp(msg):
 
 DateTimer = DateToTS("%d %b %Y %I:%M:%S %p")
 ISOTimer = DateToTS("%Y-%m-%d %H:%M:%S")
+DigsbyTimer = DateToTS("%Y-%m-%d %H:%M:%S")
 USATimer = DateToTS("%m/%d/%Y, %I:%M %p")
 
 class Digsby(Parser):
@@ -180,7 +200,7 @@ class Whatsapp(Parser):
 
     def parse_file_name(self, filename):
         """Filename is of the form with "WhatsApp Chat with NAME.txt"""""
-        return filename[31:].split(".")[0]
+        return filename[30:].split(".")[0]
 
     regex = '^(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2} [AP]M) - (.+?): (.+?)$'
     filters = [USATimer]
@@ -197,13 +217,15 @@ class Whatsapp(Parser):
                 message = {
                     'timestamp':match.groups()[0],
                     'contact': match.groups()[1],
-                    'message': match.groups()[2]
+                    'message': match.groups()[2],
+                    'protocol': 'Whatsapp',
+                    'source': 'Whatsapp'
                 }
                 for msg_filter in self.filters:
                     message = msg_filter(message)
                 if date_style == 'full':
-                    ts = datetime.datetime.fromtimestamp(message['timestamp'])
-                    message['timestamp'] = ts.isoformat()
+                    # ts = datetime.datetime.fromtimestamp(message['timestamp'])
+                    message['timestamp'] = message['timestamp'].isoformat()
                 if date_style == 'timestamp':
                     try:
                         message['timestamp'] = message['timestamp'].timestamp()
@@ -272,7 +294,9 @@ class Facebook(Parser):
             message = {
                 'timestamp': date,
                 'contact': user,
-                'message': message
+                'message': message,
+                'protocol': 'Facebook',
+                'source': 'Facebook'
             }
             if date_style == 'full':
                 message['timestamp'] = date.isoformat()
@@ -290,26 +314,31 @@ class Facebook(Parser):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
     messages = collections.defaultdict(list)
-    # for contact, text in Digsby("./Digsby Logs"):
-    #     messages[contact].append(text)
+    for contact, text in Digsby("./Digsby Logs"):
+        messages[contact].append(text)
+    # print("Digsby")
     # for contact, text in Trillian("./Trillian"):
     #     messages[contact].append(text)
+    # print("Trillian")
     # for contact, text in Trillian("./Trillian2"):
     #     messages[contact].append(text)
-    # for contact, text in Pidgin("./Pidgin"):
-    #     messages[contact].append(text)
-    # for contact, text in Whatsapp("./Whatsapp"):
-    #     messages[contact].append(text)
-    for contact, text in Facebook(files=["./Facebook/cleaned.html"]):
+    print("Trillian2")
+    for contact, text in Pidgin("./Pidgin"):
         messages[contact].append(text)
+    print("Pidgin")
+    for contact, text in Whatsapp("./Whatsapp"):
+        messages[contact].append(text)
+    print("Whatsapp")
+    # for contact, text in Facebook(files=["./Facebook/cleaned.html"]):
+    #     messages[contact].append(text)
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
-    # for k in messages:
-    #     print k, len(messages[k])
-    # print(messages['Eliza'])
-    f = open("./logs/messages.json", "w")
-    json.dump(messages, f, indent=2, ensure_ascii=False)
-    f.close()
+    for k in messages:
+        print(k, len(messages[k]))
+    print(messages['Eliza'])
+    # f = open("./logs/messages.json", "w")
+    # json.dump(messages, f, indent=2, ensure_ascii=False)
+    # f.close()
