@@ -24,7 +24,7 @@ for k in messages:
     data[k] = {}
     timestamps = collections.defaultdict(int)
     for x in messages[k]:
-        isofmt =x['timestamp'].isoformat()
+        isofmt =x['timestamp']
         timestamps[isofmt] += len(x['message'])
     data[k] = [{'timestamp': k, 'length': v} for k,v  in timestamps.items()]
     data[k] = sorted(data[k], key=lambda x: x['timestamp'])
