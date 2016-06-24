@@ -6,6 +6,7 @@ import logging
 import datetime
 import unicodedata
 import traceback
+import mappings
 from bs4 import BeautifulSoup
 try:
     import urllib.parse as urlparse
@@ -34,6 +35,7 @@ class Parser(object):
 
     def parse_file(self, f):
         messages = []
+        contacts = set()
         for line in f:
             match = re.match(self.regex, line)
             if not match:
@@ -47,6 +49,11 @@ class Parser(object):
                 }
                 file_name = f.name.lower()
                 if 'gmail' in file_name or 'google' in file_name:
+                    # Because some of the Hangouts discussions in Trillian
+                    # Have my email adress (but only mine) with a weird HEX
+                    # suffix
+                    if 'rolisz@gmail.com' in message['contact']:
+                        message['contact'] = 'rolisz@gmail.com'
                     message['protocol'] = 'Hangouts'
                 elif 'facebook' in file_name:
                     message['protocol'] = 'Facebook'
@@ -56,6 +63,12 @@ class Parser(object):
                     print(file_name)
                 for msg_filter in self.filters:
                     message = msg_filter(message)
+                contact = message['contact']
+                message['nick'] = message['contact']
+                if contact in mappings.canonical_names:
+                    message['contact'] = mappings.canonical_names[contact]
+
+                contacts.add(message['contact'])
                 if date_style == 'full':
                     try:
                         message['timestamp'] = datetime.datetime.fromtimestamp(message['timestamp'])
@@ -72,7 +85,21 @@ class Parser(object):
             except Exception as e:
                 logging.warning("Error in file %s at line %s: %s because %s", f.name,
                                 line, str(e), traceback.format_exc())
-        return messages
+        if len(messages) == 0:
+            return
+        try:
+            contacts.remove('Roland Szabo')
+        except KeyError:
+            logging.info("No message from me: %s in %s", contacts, f.name)
+        if len(contacts) > 1:
+            logging.warning("Multi party conversation, skipping: %s", contacts)
+            return
+        try:
+            # Not necessarily deterministic
+            # TODO(rolisz): Handle special case of multiple contacts
+            return contacts.pop(), messages
+        except KeyError:
+            return
 
     def files(self):
         """Generator that returns recursively all the files in a folder.
@@ -97,12 +124,11 @@ class Parser(object):
 
     def __iter__(self):
         for f in self.files():
-            logging.info("Got contact %s out of file %s",
-                         self.parse_file_name(f), f)
+            logging.info("Processing file %s", f)
             try:
-                conversations = self.parse_file(open(f))
-                if len(conversations):
-                    yield (self.parse_file_name(f), conversations)
+                result = self.parse_file(open(f))
+                if result:
+                    yield result
             except UnicodeDecodeError as e:
                 logging.warning("Unicode !@#$ in file %s: %s", f, str(e))
             except IOError as e:
@@ -140,7 +166,15 @@ def FloatTimestamp(msg):
 DateTimer = DateToTS("%d %b %Y %I:%M:%S %p")
 ISOTimer = DateToTS("%Y-%m-%d %H:%M:%S")
 DigsbyTimer = DateToTS("%Y-%m-%d %H:%M:%S")
-USATimer = DateToTS("%m/%d/%Y, %I:%M %p")
+
+def USATimer(msg):
+    try:
+        dt = datetime.datetime.strptime(msg['timestamp'], "%m/%d/%Y, %I:%M %p")
+    except Exception:
+        dt = datetime.datetime.strptime(msg['timestamp'], "%d/%m/%y %H:%M:%S")
+
+    msg['timestamp'] = dt
+    return msg
 
 class Digsby(Parser):
 
@@ -200,18 +234,25 @@ class Whatsapp(Parser):
 
     def parse_file_name(self, filename):
         """Filename is of the form with "WhatsApp Chat with NAME.txt"""""
+        # Not on iOS backups
         return filename[30:].split(".")[0]
 
-    regex = '^(\d{1,2}/\d{1,2}/\d{2,4}, \d{1,2}:\d{2} [AP]M) - (.+?): (.+?)$'
+    regex = '^(\d{1,2}/\d{1,2}/\d{2,4},? \d{1,2}:\d{2}(?::\d{2})?(?: [AP]M)?)(?: -|:) (.+?): (.+?)$'
     filters = [USATimer]
 
     def parse_file(self, f):
         messages = []
+        contacts = set()
         for line in f:
             line = NameToDate(line)
             match = re.match(self.regex, line)
             if not match:
-                message['message'] += "\n"+line
+                try:
+                    message['message'] += "\n"+line
+                # If message has not been defined yet, we're at the beginning
+                # of the file
+                except UnboundLocalError:
+                    pass
                 continue
             try:
                 message = {
@@ -219,10 +260,16 @@ class Whatsapp(Parser):
                     'contact': match.groups()[1],
                     'message': match.groups()[2],
                     'protocol': 'Whatsapp',
-                    'source': 'Whatsapp'
+                    'source': 'Whatsapp',
+                    'nick': match.groups()[1],
                 }
                 for msg_filter in self.filters:
                     message = msg_filter(message)
+                contact = message['contact']
+                if contact in mappings.canonical_names:
+                    contact = mappings.canonical_names[contact]
+                message['contact'] = contact
+                contacts.add(message['contact'])
                 if date_style == 'full':
                     # ts = datetime.datetime.fromtimestamp(message['timestamp'])
                     message['timestamp'] = message['timestamp'].isoformat()
@@ -235,7 +282,21 @@ class Whatsapp(Parser):
             except Exception as e:
                 logging.warning("Error in file %s at line %s: %s", f.name,
                                 line, str(e))
-        return messages
+        if len(messages) == 0:
+            return "", []
+        try:
+            contacts.remove('Roland Szabo')
+        except KeyError:
+            logging.info("No message from me: %s in %s", contacts, f.name)
+        if len(contacts) > 1:
+            logging.warning("Multi party conversation, skipping: %s", contacts)
+            return
+        try:
+            # Not necessarily deterministic
+            # TODO(rolisz): Handle special case of multiple contacts
+            return contacts.pop(), messages
+        except KeyError:
+            return "", []
 
     def filter_func(self, filename):
         root, ext = os.path.splitext(filename)
@@ -261,10 +322,15 @@ class Facebook(Parser):
         first = next(it)
         contacts = set(first.string.strip().split(","))
         if len(contacts) > 2:
-            logging.info("Group chat %s. Skipping", contacts)
+            logging.warning("Group chat %s. Skipping", contacts)
+            return
+        if len(contacts) < 2:
+            logging.warning("Talking to myself: %s", first)
             return
         p1, p2 = contacts
         other = p1.strip() if "Roland" in p2 else p2.strip()
+        if other in mappings.canonical_names:
+            other = mappings.canonical_names[other]
         # After that the children are: message_header, new_line,
         # message in a p, new_line
         messages = []
@@ -272,6 +338,9 @@ class Facebook(Parser):
         for header, m1, message, m2 in zip(it, it, it, it):
             try:
                 user = header.find(class_='user').string.strip()
+                contact = user
+                if contact in mappings.canonical_names:
+                    contact = mappings.canonical_names[contact]
                 contacts.add(user)
             except Exception as e:
                 logging.warning("Couldn't parse user %s because %s", header, e)
@@ -293,10 +362,11 @@ class Facebook(Parser):
                 continue
             message = {
                 'timestamp': date,
-                'contact': user,
+                'contact': contact,
                 'message': message,
                 'protocol': 'Facebook',
-                'source': 'Facebook'
+                'source': 'Facebook',
+                'nick': user,
             }
             if date_style == 'full':
                 message['timestamp'] = date.isoformat()
@@ -306,10 +376,6 @@ class Facebook(Parser):
             if errors > 15:
                 logging.error("Too many errors for %s", other)
                 break
-        if len(contacts) == 1:
-            logging.info("Single contact %s with %d messages", contacts, len(messages))
-        if len(contacts) > 2:
-            logging.info("Multiple aliases: %s", contacts)
         return other, reversed(messages)
 
 
@@ -338,7 +404,6 @@ if __name__ == "__main__":
         messages[contact].sort(key=lambda x: x['timestamp'])
     for k in messages:
         print(k, len(messages[k]))
-    print(messages['Eliza'])
     # f = open("./logs/messages.json", "w")
     # json.dump(messages, f, indent=2, ensure_ascii=False)
     # f.close()
