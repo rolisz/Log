@@ -46,7 +46,7 @@ print("Sorting")
 # Define a default Elasticsearch client
 connections.create_connection(hosts=['localhost'])
 
-class ChatLine(DocType):
+class Message(DocType):
     message = String()
     contact = String(index="not_analyzed")
     sender = String(index="not_analyzed")
@@ -61,10 +61,10 @@ class ChatLine(DocType):
 
     def save(self, ** kwargs):
         self.length = len(self.message)
-        return super(ChatLine, self).save(** kwargs)
+        return super(Message, self).save(** kwargs)
 
 # create the mappings in elasticsearch
-ChatLine.init()
+Message.init()
 es = Elasticsearch()
 
 def lines():
