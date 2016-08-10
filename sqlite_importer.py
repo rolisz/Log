@@ -4,13 +4,18 @@ import collections
 import itertools
 import json
 from datetime import datetime
+import mappings
 import sqlite3
 
 def lines():
     for contact in messages:
+        gender = mappings.genders.get(contact, 'n')
+        friendship = 2016 - mappings.met.get(contact, mappings.avg_age)
+        age_group = mappings.age_buckets.get(contact, -1)
         for line in messages[contact]:
             yield  (contact, line['contact'],line['timestamp'], line['source'],
-                    line['protocol'],line['nick'],line['message'])
+                    line['protocol'],line['nick'],line['message'], gender,
+                    friendship, age_group)
 
 def grouper(n, iterable):
     it = iter(iterable)
@@ -60,11 +65,13 @@ c = conn.cursor()
 
 c.execute('DROP TABLE IF EXISTS messages')
 c.execute('CREATE TABLE messages (contact TEXT, sender TEXT, datetime TEXT,'
-        'source TEXT, protocol TEXT, nick TEXT, message TEXT)')
+        'source TEXT, protocol TEXT, nick TEXT, message TEXT, friendship INT,'
+        'gender TEXT, age_group INT)')
 
 for gr in grouper(5000, lines()):
     conn.executemany("INSERT INTO messages (contact, sender, datetime, source,"
-                "protocol, nick, message) values (?, ?, ?, ?, ?, ?, ?)", gr)
+                "protocol, nick, message, gender, friendship, age_group) values"
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", gr)
     print("Inserted 5000")
 
 conn.commit()

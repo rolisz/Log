@@ -1,56 +1,44 @@
 import logging
-import parsers
+from pprint import pprint
+import sqlite3
 import collections
 import itertools
 import json
 from datetime import datetime
 
-messages = collections.defaultdict(list)
-# for contact, text in parsers.Digsby("./Digsby Logs"):
-#     messages[contact].append(text)
-# for contact, text in parsers.Trillian("./Trillian"):
-#     messages[contact].append(text)
-# for contact, text in parsers.Trillian("./Trillian2"):
-#     messages[contact].append(text)
-# for contact, text in parsers.Pidgin("./Pidgin"):
-#     messages[contact].append(text)
-for contact, text in parsers.Whatsapp("./Whatsapp"):
-    messages[contact].append(text)
-for contact, text in parsers.Facebook(files=["./Facebook/cleaned.html"]):
-    messages[contact].append(text)
-print("Done reading")
 
-all_messages = set()
-dupes = set()
-for contact in messages:
-    msgs = set()
-    messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
-    messages[contact].sort(key=lambda x: x['timestamp'])
-    print(contact, len(messages[contact]))
-    prev = False
-    for msg in messages[contact]:
-        message = msg['message']
-        if message not in msgs:
-            all_messages.add(message)
-            msgs.add(message)
-            prev = False
+con = sqlite3.connect("messages.db")
+c = con.cursor()
+l = c.execute("select * from messages where contact IN (select contact from messages group by"
+                " contact having count(contact) > 5000)")
+messages =  [{l.description[i][0]: v for i, v in enumerate(row)}
+                for row in l.fetchall()]
+
+
+for k, g in itertools.groupby(messages, lambda msg: msg['contact']):
+    g = list(g)
+    g.sort(key=lambda x: x['datetime'])
+    print(k, len(g))
+    print(g[0]['datetime'])
+    h = {}
+    dupes = 0
+    for msg in g:
+        if msg['source'] == 'Whatsapp' or len(msg['message']) < 4\
+            or sum(c.isalnum() for c in msg['message']) < 2:
+            continue
+        key = (msg['datetime'][:16], msg['message'])
+        if  key in h:
+            h[key].append((msg['datetime'], msg['message'], msg['source']))
+            dupes += 1
         else:
-            if not prev:
-                all_messages.add(message)
-                if len(message) > 6:
-                    prev = True
-            else:
-                prev = True
-                dupes.add(message)
+            h[key] = [(msg['datetime'], msg['message'], msg['source'])]
+    print(dupes)
+    h = {k: v for k, v in h.items() if len(v) > 1}
+    h = {k: v for k, v in h.items() if v[0][2] == v[1][2]}
+    print(sum(len(v) for v in h.values()))
 
-print(len(dupes))
-print(len(all_messages))
+    # pprint(h)
+    # break
 
 
-# print(messages)
-# for k in messages:
-#     print k, len(messages[k])
-# f = open("./logs/messages.json", "w")
-# json.dump(messages, f, indent=2, ensure_ascii=False)
-# f.close()
 

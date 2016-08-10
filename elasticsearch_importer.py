@@ -8,6 +8,7 @@ import collections
 import itertools
 import json
 from datetime import datetime
+import mappings
 
 # logging.basicConfig(level=logging.INFO)
 messages = collections.defaultdict(list)
@@ -54,6 +55,7 @@ class Message(DocType):
     source = String(index="not_analyzed")
     protocol = String(index="not_analyzed")
     nick = String(index="not_analyzed")
+    gender = String(index="not_analyzed")
     length = Integer()
 
     class Meta:
@@ -69,12 +71,14 @@ es = Elasticsearch()
 
 def lines():
     for contact in messages:
+        gender = mappings.genders.get(contact, 'n')
         for line in messages[contact]:
             yield {'_op_type': 'index', '_index': 'chat', '_type': 'message',
                     'message': line['message'], 'contact': contact,
                     'sender': line['contact'], 'datetime': line['timestamp'],
                     'protocol': line['protocol'], 'source': line['source'],
-                    'length': len(line['message']), 'nick': line['nick']}
+                    'length': len(line['message']), 'nick': line['nick'],
+                    'gender': gender}
 
 bulk(es,lines())
 
