@@ -12,22 +12,19 @@ import mappings
 
 # logging.basicConfig(level=logging.INFO)
 messages = collections.defaultdict(list)
-for contact, text in parsers.Digsby("./Digsby Logs"):
+for contact, text in parsers.Digsby("./data/raw/Digsby Logs"):
     messages[contact].append(text)
 print("Digsby")
-for contact, text in parsers.Trillian("./Trillian"):
+for contact, text in parsers.Trillian("./data/raw/Trillian"):
     messages[contact].append(text)
 print("Trillian")
-for contact, text in parsers.Trillian("./Trillian2"):
-    messages[contact].append(text)
-print("Trillian")
-for contact, text in parsers.Pidgin("./Pidgin"):
+for contact, text in parsers.Pidgin("./data/raw/Pidgin"):
     messages[contact].append(text)
 print("Pidgin")
-for contact, text in parsers.Whatsapp("./Whatsapp"):
+for contact, text in parsers.Whatsapp("./data/raw/Whatsapp"):
     messages[contact].append(text)
 print("Whatsapp")
-for contact, text in parsers.Facebook(files=["./Facebook/cleaned.html"]):
+for contact, text in parsers.Facebook(files=["./data/interim/Facebook/cleaned.html"]):
     messages[contact].append(text)
 print("Facebook")
 for contact in messages:
