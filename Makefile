@@ -11,7 +11,8 @@ TRILLIAN?="./data/raw/Trillian"
 PIDGIN?="./data/raw/Pidgin"
 YAHOO?="./data/raw/Yahoo"
 WHATSAPP?="./data/raw/Whatsapp"
-SQLITE?="./data/interim/messages.db"
+SQLITE?="./data/processed/messages.db"
+SELF_NAME?="Roland Szabo"
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -24,18 +25,22 @@ $(FACEBOOK): $(FACEBOOK_RAW)
 	python src/data/fb_cleaner.py $(FACEBOOK_RAW) "$(FACEBOOK)cleaned.html"
 
 $(SQLITE): facebook_clean
-	python src/data/sqlite_importer.py --facebook_path $(FACEBOOK) \
+	python -m src.data.sqlite_importer --facebook_path $(FACEBOOK) \
 		--trillian_path $(TRILLIAN) --pidgin_path $(PIDGIN) \
-		--digsby_path $(DIGSBY) --whatsapp_path $(WHATSAPP) $(SQLITE)
+		--digsby_path $(DIGSBY) --whatsapp_path $(WHATSAPP) \
+		--self_name=$(SELF_NAME) $(SQLITE)
 
 clean:
 	find . -name "*.pyc" -exec rm {} \;
 
 clean_sqlite:
-	python src/data/sqlite_importer.py --drop_table $(SQLITE)
+	python -m src.data.sqlite_importer --drop_table $(SQLITE)
 
 lint:
 	flake8 --exclude=lib/,bin/,docs/conf.py .
+
+test:
+	nosetests
 
 #################################################################################
 # PROJECT RULES                                                                 #

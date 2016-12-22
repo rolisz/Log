@@ -3,25 +3,34 @@ import os
 import click
 import logging
 from dotenv import find_dotenv, load_dotenv
-import logging
-import parsers
 import collections
 import itertools
-import json
-from datetime import datetime
-import mappings
 import sqlite3
+from src.data import mappings
+from src.data.mappings import canonicalize
+from src.data import parsers
 
-
-def lines(messages):
-    for contact in messages:
-        gender = mappings.genders.get(contact, 'n')
-        friendship = 2016 - mappings.met.get(contact, mappings.avg_age)
-        age_group = mappings.age_buckets.get(contact, -1)
-        for line in messages[contact]:
-            yield  (contact, line['contact'],line['timestamp'], line['source'],
-                    line['protocol'],line['nick'],line['message'], gender,
-                    friendship, age_group)
+def lines(messages, self_name):
+    for contacts in messages:
+        cleaned_contacts = set()
+        for contact in contacts:
+            contact = canonicalize(contact)
+            if contact != self_name:
+                cleaned_contacts.add(contact)
+        if len(cleaned_contacts) == 1:
+            c = next(iter(cleaned_contacts))
+            gender = mappings.genders.get(c, 'u')
+            friendship = 2016 - mappings.met.get(c, mappings.avg_age)
+            age_group = mappings.age_buckets.get(c, -1)
+        else:
+            gender = 'n/a'
+            friendship = -1
+            age_group = -2
+        thread_name = ",".join(cleaned_contacts)
+        for line in messages[contacts]:
+            yield  (thread_name, canonicalize(line['contact']), line['timestamp'],
+                    line['source'], line['protocol'], line['nick'],
+                    line['message'], gender, friendship, age_group)
 
 def grouper(n, iterable):
     it = iter(iterable)
@@ -40,31 +49,33 @@ def grouper(n, iterable):
 @click.option('--whatsapp_path', type=click.Path(exists=True))
 @click.option('--sqlite_table', default='messages')
 @click.option('--drop_table/--nodrop_table', default=False)
+@click.option('--self_name', default='',
+              help="The canonical name for you, to filter out from contact lists")
 @click.argument('sqlite_path', type=click.Path())
 def main(facebook_path, trillian_path, digsby_path, pidgin_path, whatsapp_path,
-         sqlite_table, drop_table, sqlite_path):
+         sqlite_table, drop_table, self_name, sqlite_path):
     logger = logging.getLogger(__name__)
     logger.info('parsing logs')
     messages = collections.defaultdict(list)
     if digsby_path:
         for contact, text in parsers.Digsby(digsby_path):
-            messages[contact].append(text)
+            messages[frozenset(contact)].append(text)
         logger.info("Digsby parsing done")
     if trillian_path:
         for contact, text in parsers.Trillian(trillian_path):
-            messages[contact].append(text)
+            messages[frozenset(contact)].append(text)
         logger.info("Trillian parsing done")
     if pidgin_path:
         for contact, text in parsers.Pidgin(pidgin_path):
-            messages[contact].append(text)
+            messages[frozenset(contact)].append(text)
         logger.info("Pidgin parsing done")
     if whatsapp_path:
         for contact, text in parsers.Whatsapp(whatsapp_path):
-            messages[contact].append(text)
+            messages[frozenset(contact)].append(text)
         logger.info("Whatsapp parsing done")
     if facebook_path:
         for contact, text in parsers.Facebook(facebook_path):
-            messages[contact].append(text)
+            messages[frozenset(contact)].append(text)
         logger.info("Facebook parsing done")
 
     for contact in messages:
@@ -81,7 +92,7 @@ def main(facebook_path, trillian_path, digsby_path, pidgin_path, whatsapp_path,
             'source TEXT, protocol TEXT, nick TEXT, message TEXT, friendship INT,'
             'gender TEXT, age_group INT)' % sqlite_table)
 
-    for gr in grouper(5000, lines(messages)):
+    for gr in grouper(5000, lines(messages, self_name)):
         conn.executemany("INSERT INTO %s (contact, sender, datetime, source,"
                     "protocol, nick, message, gender, friendship, age_group) values"
                     "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" % sqlite_table, gr)
