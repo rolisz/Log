@@ -135,15 +135,27 @@ DateTimer = DateToTS("%d %b %Y %I:%M:%S %p")
 ISOTimer = DateToTS("%Y-%m-%d %H:%M:%S")
 DigsbyTimer = DateToTS("%Y-%m-%d %H:%M:%S")
 
-def USATimer(msg):
-    msg['timestamp'] = msg['timestamp'].replace(',', '')
-    try:
-        dt = datetime.datetime.strptime(msg['timestamp'], "%m/%d/%Y %I:%M %p")
-    except Exception:
-        dt = datetime.datetime.strptime(msg['timestamp'], "%d/%m/%y %H:%M:%S")
-
-    msg['timestamp'] = dt
-    return msg
+am_conv = {'AM': 0,'PM': 12}
+def USATimer(ts):
+    ts = ts.replace(',', '')
+    if ts.count(" ") == 2:
+        # %m/%d/%Y %I:%M %p
+        date, time, am = ts.split(" ")
+        month, day, year = date.split("/")
+        hour, minute = time.split(":")
+        year, month, day, minute = int(year), int(month), int(day), int(minute)
+        if year < 2000:
+            year += 2000
+        hour = int(hour) % 12 + am_conv[am]
+        second = 0
+    else:
+        # %d/%m/%y %H:%M:%S
+        date, time = ts.split(" ")
+        day, month, year = date.split("/")
+        hour, minute, second = time.split(":")
+        year, month, day = int(year) + 2000, int(month), int(day)
+        hour, minute, second = int(hour), int(minute), int(second)
+    return datetime.datetime(year, month, day, hour, minute, second)
 
 class Digsby(Parser):
 
@@ -199,7 +211,6 @@ def NameToDate(line):
             date = date.replace(year=2015)
             new_fmt = date.strftime("%m/%d/%Y")
             return "%s,%s" % (new_fmt, sp[1])
-        line = re.sub("^(\d{1,2}/\d{1,2}/)(\d\d) (\d{1,2}:\d\d [AP]M)", "\\g<1>20\\2 \\3", line)
         return line
     except Exception as e:
         print(line)
@@ -214,39 +225,39 @@ class Whatsapp(Parser):
         return filename[30:].split(".")[0]
 
     regex = '^(\d{1,2}/\d{1,2}/\d{2,4},? \d{1,2}:\d{2}(?::\d{2})?(?: [AP]M)?)(?: -|:) (.+?): (.+?)$'
-    filters = [USATimer]
 
     def parse_file(self, f):
         messages = []
         contacts = set()
+        message = {'message': []}
         for line in f:
             line = NameToDate(line)
             match = re.match(self.regex, line)
             if not match:
                 try:
-                    message['message'] += "\n"+line
+                    # message['message'] += "\n"+line
+                    message['message'].append(line)
                 # If message has not been defined yet, we're at the beginning
                 # of the file
                 except UnboundLocalError:
                     pass
                 continue
+            message['message'] = "\n".join(message['message'])
             try:
                 message = {
-                    'timestamp':match.groups()[0],
+                    'timestamp': USATimer(match.groups()[0]).isoformat(),
                     'contact': match.groups()[1],
-                    'message': match.groups()[2],
+                    'message': [match.groups()[2]],
                     'protocol': 'Whatsapp',
                     'source': 'Whatsapp',
                     'nick': match.groups()[1],
                 }
-                for msg_filter in self.filters:
-                    message = msg_filter(message)
                 contacts.add(message['contact'])
-                message['timestamp'] = message['timestamp'].isoformat()
                 messages.append(message)
             except Exception as e:
                 logging.warning("Error in file %s at line %s: %s", f.name,
                                 line, str(e))
+        message['message'] = "\n".join(message['message'])
         if len(messages) == 0:
             return "", []
         return contacts, messages
@@ -319,28 +330,31 @@ class Facebook(Parser):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
     messages = collections.defaultdict(list)
-    for contact, text in Digsby("./Digsby Logs"):
-        messages[contact].append(text)
+    # for contact, text in Digsby("./Digsby Logs"):
+    #     messages[contact].append(text)
     # print("Digsby")
     # for contact, text in Trillian("./Trillian"):
     #     messages[contact].append(text)
     # print("Trillian")
     # for contact, text in Trillian("./Trillian2"):
     #     messages[contact].append(text)
-    print("Trillian2")
-    for contact, text in Pidgin("./Pidgin"):
-        messages[contact].append(text)
+    # print("Trillian2")
+    # for contact, text in Pidgin("./Pidgin"):
+    #     messages[contact].append(text)
     print("Pidgin")
-    for contact, text in Whatsapp("./Whatsapp"):
-        messages[contact].append(text)
+    for contact, text in Whatsapp("./data/raw/Whatsapp"):
+        messages[frozenset(contact)].append(text)
     print("Whatsapp")
     # for contact, text in Facebook(files=["./Facebook/cleaned.html"]):
     #     messages[contact].append(text)
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
+    total = 0
     for k in messages:
         print(k, len(messages[k]))
+        total += len(messages[k])
+    print(total)
     # f = open("./logs/messages.json", "w")
     # json.dump(messages, f, indent=2, ensure_ascii=False)
     # f.close()

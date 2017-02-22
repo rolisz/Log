@@ -57,6 +57,6 @@ class WhatsappTest(unittest.TestCase):
         self.assertSetEqual(contacts, {"Person 1"})
         self.assertEqual(len(lines), 1)
         self.assertEqual(lines[0]['timestamp'], "2016-11-11T23:37:55")
-        self.assertEqual(lines[0]['message'], "Long Message Is Long")
+        self.assertEqual(lines[0]['message'], "Long\nMessage\n\nIs\nLong")
 
 
