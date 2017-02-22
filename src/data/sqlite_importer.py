@@ -49,42 +49,59 @@ def grouper(n, iterable):
 @click.option('--whatsapp_path', type=click.Path(exists=True))
 @click.option('--sqlite_table', default='messages')
 @click.option('--drop_table/--nodrop_table', default=False)
+@click.option('--clean_table/--noclean_table', default=True)
 @click.option('--self_name', default='',
               help="The canonical name for you, to filter out from contact lists")
 @click.argument('sqlite_path', type=click.Path())
 def main(facebook_path, trillian_path, digsby_path, pidgin_path, whatsapp_path,
-         sqlite_table, drop_table, self_name, sqlite_path):
+         sqlite_table, drop_table, clean_table, self_name, sqlite_path):
     logger = logging.getLogger(__name__)
     logger.info('parsing logs')
     messages = collections.defaultdict(list)
+
+    conn = sqlite3.connect(sqlite_path)
+    c = conn.cursor()
+
     if digsby_path:
         for contact, text in parsers.Digsby(digsby_path):
             messages[frozenset(contact)].append(text)
         logger.info("Digsby parsing done")
+        if clean_table:
+            c.execute("DELETE FROM %s WHERE source = '%s'" % (sqlite_table, "Digsby"))
+            logger.info("Digsby cleaning done")
     if trillian_path:
         for contact, text in parsers.Trillian(trillian_path):
             messages[frozenset(contact)].append(text)
         logger.info("Trillian parsing done")
+        if clean_table:
+            c.execute("DELETE FROM %s WHERE source = '%s'" % (sqlite_table, "Trillian"))
+            logger.info("Trillian cleaning done")
     if pidgin_path:
         for contact, text in parsers.Pidgin(pidgin_path):
             messages[frozenset(contact)].append(text)
         logger.info("Pidgin parsing done")
+        if clean_table:
+            c.execute("DELETE FROM %s WHERE source = '%s'" % (sqlite_table, "Pidgin"))
+            logger.info("Pidgin cleaning done")
     if whatsapp_path:
         for contact, text in parsers.Whatsapp(whatsapp_path):
             messages[frozenset(contact)].append(text)
         logger.info("Whatsapp parsing done")
+        if clean_table:
+            c.execute("DELETE FROM %s WHERE source = '%s'" % (sqlite_table, "Whatsapp"))
+            logger.info("Whatsapp cleaning done")
     if facebook_path:
         for contact, text in parsers.Facebook(facebook_path):
             messages[frozenset(contact)].append(text)
         logger.info("Facebook parsing done")
+        if clean_table:
+            c.execute("DELETE FROM %s WHERE source = '%s'" % (sqlite_table, "Facebook"))
+            logger.info("Facebook cleaning done")
 
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
     logger.info("Message joining and sorting done")
-
-    conn = sqlite3.connect(sqlite_path)
-    c = conn.cursor()
 
     if drop_table:
         c.execute('DROP TABLE IF EXISTS '+sqlite_table)

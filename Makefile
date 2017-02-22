@@ -28,7 +28,7 @@ $(SQLITE): facebook_clean
 	python -m src.data.sqlite_importer --facebook_path $(FACEBOOK) \
 		--trillian_path $(TRILLIAN) --pidgin_path $(PIDGIN) \
 		--digsby_path $(DIGSBY) --whatsapp_path $(WHATSAPP) \
-		--self_name=$(SELF_NAME) $(SQLITE)
+		--self_name=$(SELF_NAME) --clean_table $(SQLITE)
 
 clean:
 	find . -name "*.pyc" -exec rm {} \;
