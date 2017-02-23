@@ -6,6 +6,7 @@ import datetime
 import unicodedata
 import traceback
 from bs4 import BeautifulSoup
+from lxml import etree
 try:
     import urllib.parse as urlparse
 except:
@@ -135,7 +136,7 @@ DateTimer = DateToTS("%d %b %Y %I:%M:%S %p")
 ISOTimer = DateToTS("%Y-%m-%d %H:%M:%S")
 DigsbyTimer = DateToTS("%Y-%m-%d %H:%M:%S")
 
-am_conv = {'AM': 0,'PM': 12}
+am_conv = {'AM': 0,'PM': 12, 'am': 0, 'pm': 12}
 def USATimer(ts):
     ts = ts.replace(',', '')
     if ts.count(" ") == 2:
@@ -266,49 +267,60 @@ class Whatsapp(Parser):
         root, ext = os.path.splitext(filename)
         return ext == '.txt'
 
+months = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June':6,
+        'July':7, 'August': 8, 'September': 9, 'October': 10, 'November': 11,
+        'December':12}
+def parseDate(date):
+    # "%A, %B %d, %Y at %I:%M%p"
+    _, day, rest = date.split(",")
+    month, day = day.strip().split()
+    month, day = months[month], int(day)
+    year, _, time = rest.strip().split()
+    year = int(year)
+    hour, minute = time[:-2].split(":")
+    hour, minute = int(hour) % 12 + am_conv[time[-2:]], int(minute)
+    return datetime.datetime(year, month, day, hour, minute, 0)
+
 class Facebook(Parser):
 
     def __iter__(self):
         for filename in self.files():
             with open(filename) as f:
                 file_content = f.read()
-            soup = BeautifulSoup(file_content, 'lxml')
+            soup = etree.HTML(file_content)
             logging.info("Finished loading HTML file %s", filename)
-            threads = soup.find_all(class_='thread')
+            threads = soup.cssselect('div.thread')
             for thread in threads:
                 result = self.parse_thread(thread)
                 if result:
                     yield result
 
     def parse_thread(self, thread):
-        it = iter(thread.children)
-        # First child is just the names concatenated
-        first = next(it)
-        contacts = set(s.strip() for s in first.string.split(","))
+        it = iter(thread.getchildren())
+        contacts = set()
         # After that the children are: message_header, new_line,
         # message in a p, new_line
         messages = []
         errors = 0
-        for header, m1, message, m2 in zip(it, it, it, it):
+        for header, message in zip(it, it):
             try:
-                user = header.find(class_='user').string.strip()
+                user = header.cssselect('span.user')[0].text.strip()
                 contacts.add(user)
             except Exception as e:
-                logging.warning("Couldn't parse user %s because %s", header, e)
+                logging.warning("Couldn't parse user %s because %s", etree.tostring(header), e)
                 errors +=1
                 continue
             try:
-                date = header.find(class_='meta').string.strip()[:-7]
-                date = datetime.datetime.strptime(date, "%A, %B %d, %Y at %I:%M%p")
+                date = header.cssselect('span.meta')[0].text.strip()[:-7]
+                date = parseDate(date)
             except Exception as e:
                 logging.warning("Couldn't parse date %s because %s", header, e)
                 errors +=1
                 continue
             try:
-                message = message.string.strip()
+                message = message.text.strip()
             except Exception as e:
                 logging.warning("Couldn't parse message %s because %s", message, e)
-                print(m1,m2)
                 errors +=1
                 continue
             message = {
@@ -341,18 +353,18 @@ if __name__ == "__main__":
     # print("Trillian2")
     # for contact, text in Pidgin("./Pidgin"):
     #     messages[contact].append(text)
-    print("Pidgin")
-    for contact, text in Whatsapp("./data/raw/Whatsapp"):
-        messages[frozenset(contact)].append(text)
+    # print("Pidgin")
+    # for contact, text in Whatsapp("./data/raw/Whatsapp"):
+    #     messages[frozenset(contact)].append(text)
     print("Whatsapp")
-    # for contact, text in Facebook(files=["./Facebook/cleaned.html"]):
-    #     messages[contact].append(text)
+    for contact, text in Facebook(files=["./data/interim/Facebook/cleaned.html"]):
+        messages[frozenset(contact)].append(text)
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
     total = 0
     for k in messages:
-        print(k, len(messages[k]))
+        # print(k, len(messages[k]))
         total += len(messages[k])
     print(total)
     # f = open("./logs/messages.json", "w")
