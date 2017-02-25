@@ -2,6 +2,7 @@ import os
 import warnings
 import re
 import logging
+import json
 import datetime
 import unicodedata
 import traceback
@@ -298,8 +299,7 @@ class Facebook(Parser):
     def parse_thread(self, thread):
         it = iter(thread.getchildren())
         contacts = set()
-        # After that the children are: message_header, new_line,
-        # message in a p, new_line
+        # After that the children are: message_header,message in a p
         messages = []
         errors = 0
         for header, message in zip(it, it):
@@ -338,30 +338,79 @@ class Facebook(Parser):
                 break
         return contacts, reversed(messages)
 
+class Hangouts(Parser):
+
+    def __iter__(self):
+        for filename in self.files():
+            data = json.load(open(filename))['conversation_state']
+            logging.info("Finished loading JSON file %s", filename)
+            for contact in data:
+                result = self.parse_thread(contact)
+                if result:
+                    yield result
+
+    def parse_thread(self, thread):
+        conv = thread["conversation_state"]["conversation"]
+        participants = {}
+        for part in conv["participant_data"]:
+            if "fallback_name" in part:
+                participants[part["id"]["gaia_id"]] = part["fallback_name"]
+            else:
+                participants[part["id"]["gaia_id"]] = ("Unknown_%s"
+                        % part["id"]["gaia_id"])
+
+        events = thread["conversation_state"]["event"]
+
+        messages = []
+        for event in events:
+            gaia_id = event["sender_id"]["gaia_id"]
+            if gaia_id in participants:
+                sender = participants[gaia_id]
+            else:
+                sender = "Unknown_%s" % gaia_id
+            date = datetime.datetime.fromtimestamp(float(event["timestamp"])/1000000)
+            if event["event_type"] == "REGULAR_CHAT_MESSAGE":
+                if "segment" in event["chat_message"]["message_content"]:
+                    message = " ".join(p["text"]
+                            for p in event["chat_message"]["message_content"]
+                                ["segment"] if "text" in p)
+                    messages.append({
+                        'timestamp': date.isoformat(),
+                        'contact': sender,
+                        'message': message,
+                        'protocol': 'Hangouts',
+                        'source': 'Hangouts',
+                        'nick': sender,
+                    })
+        return participants.values(), messages
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
     messages = collections.defaultdict(list)
-    # for contact, text in Digsby("./Digsby Logs"):
-    #     messages[contact].append(text)
-    # print("Digsby")
-    # for contact, text in Trillian("./Trillian"):
-    #     messages[contact].append(text)
-    # print("Trillian")
-    # for contact, text in Trillian("./Trillian2"):
-    #     messages[contact].append(text)
-    # print("Trillian2")
-    # for contact, text in Pidgin("./Pidgin"):
-    #     messages[contact].append(text)
-    # print("Pidgin")
+    for contact, text in Digsby("./data/raw/Digsby Logs"):
+        messages[frozenset(contact)].append(text)
+    print("Digsby")
+    for contact, text in Trillian("./data/raw/Trillian"):
+        messages[frozenset(contact)].append(text)
+    print("Trillian")
+    for contact, text in Trillian("./data/raw/Trillian2"):
+        messages[frozenset(contact)].append(text)
+    print("Trillian2")
+    for contact, text in Pidgin("./data/raw/Pidgin"):
+        messages[frozenset(contact)].append(text)
+    print("Pidgin")
     # for contact, text in Whatsapp("./data/raw/Whatsapp"):
     #     messages[frozenset(contact)].append(text)
-    print("Whatsapp")
-    for contact, text in Facebook(files=["./data/interim/Facebook/cleaned.html"]):
-        messages[frozenset(contact)].append(text)
-    for contact in messages:
-        messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
-        messages[contact].sort(key=lambda x: x['timestamp'])
+    # print("Whatsapp")
+    # for contact, text in Facebook(files=["./data/interim/Facebook/cleaned.html"]):
+    #     messages[frozenset(contact)].append(text)
+    # print("Facebook")
+    # for contact, text in Hangouts(files=["./data/raw/Hangouts/Hangouts.json"]):
+    #     messages[frozenset(contact)].append(text)
+    # for contact in messages:
+    #     messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
+    #     messages[contact].sort(key=lambda x: x['timestamp'])
     total = 0
     for k in messages:
         # print(k, len(messages[k]))

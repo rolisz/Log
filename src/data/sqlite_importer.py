@@ -47,6 +47,7 @@ def grouper(n, iterable):
 @click.option('--digsby_path', type=click.Path(exists=True))
 @click.option('--pidgin_path', type=click.Path(exists=True))
 @click.option('--whatsapp_path', type=click.Path(exists=True))
+@click.option('--hangouts_path', type=click.Path(exists=True))
 @click.option('--sqlite_table', default='messages')
 @click.option('--drop_table/--nodrop_table', default=False)
 @click.option('--clean_table/--noclean_table', default=True)
@@ -54,7 +55,8 @@ def grouper(n, iterable):
               help="The canonical name for you, to filter out from contact lists")
 @click.argument('sqlite_path', type=click.Path())
 def main(facebook_path, trillian_path, digsby_path, pidgin_path, whatsapp_path,
-         sqlite_table, drop_table, clean_table, self_name, sqlite_path):
+         hangouts_path, sqlite_table, drop_table, clean_table, self_name,
+         sqlite_path):
     logger = logging.getLogger(__name__)
     logger.info('parsing logs')
     messages = collections.defaultdict(list)
@@ -97,11 +99,19 @@ def main(facebook_path, trillian_path, digsby_path, pidgin_path, whatsapp_path,
         if clean_table:
             c.execute("DELETE FROM %s WHERE source = '%s'" % (sqlite_table, "Facebook"))
             logger.info("Facebook cleaning done")
+    if hangouts_path:
+        for contact, text in parsers.Hangouts(hangouts_path):
+            messages[frozenset(contact)].append(text)
+        logger.info("Hangouts parsing done")
+        if clean_table:
+            c.execute("DELETE FROM %s WHERE source = '%s'" % (sqlite_table, "Hangouts"))
+            logger.info("Hangouts cleaning done")
 
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
-    logger.info("Message joining and sorting done")
+        print(len(messages[contact]))
+    logger.info("Message joining and sorting done.")
 
     if drop_table:
         c.execute('DROP TABLE IF EXISTS '+sqlite_table)
