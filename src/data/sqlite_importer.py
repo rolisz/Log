@@ -64,6 +64,12 @@ def main(facebook_path, trillian_path, digsby_path, pidgin_path, whatsapp_path,
     conn = sqlite3.connect(sqlite_path)
     c = conn.cursor()
 
+    if drop_table:
+        c.execute('DROP TABLE IF EXISTS '+sqlite_table)
+    c.execute('CREATE TABLE IF NOT EXISTS %s (contact TEXT, sender TEXT, datetime TEXT,'
+            'source TEXT, protocol TEXT, nick TEXT, message TEXT, friendship INT,'
+            'gender TEXT, age_group INT)' % sqlite_table)
+
     if digsby_path:
         for contact, text in parsers.Digsby(digsby_path):
             messages[frozenset(contact)].append(text)
@@ -112,12 +118,6 @@ def main(facebook_path, trillian_path, digsby_path, pidgin_path, whatsapp_path,
         messages[contact].sort(key=lambda x: x['timestamp'])
         print(len(messages[contact]))
     logger.info("Message joining and sorting done.")
-
-    if drop_table:
-        c.execute('DROP TABLE IF EXISTS '+sqlite_table)
-    c.execute('CREATE TABLE IF NOT EXISTS %s (contact TEXT, sender TEXT, datetime TEXT,'
-            'source TEXT, protocol TEXT, nick TEXT, message TEXT, friendship INT,'
-            'gender TEXT, age_group INT)' % sqlite_table)
 
     for gr in grouper(5000, lines(messages, self_name)):
         conn.executemany("INSERT INTO %s (contact, sender, datetime, source,"

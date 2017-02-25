@@ -63,10 +63,9 @@ class Parser(object):
                 contacts.add(message['contact'])
                 try:
                     message['timestamp'] = datetime.datetime.fromtimestamp(message['timestamp'])
+                    message['timestamp'] = message['timestamp'].isoformat()
                 except:
                     pass
-                finally:
-                    message['timestamp'] = message['timestamp'].isoformat()
                 messages.append(message)
             except Exception as e:
                 logging.warning("Error in file %s at line %s: %s because %s", f.name,
@@ -122,20 +121,18 @@ def Unquote(msg):
     msg['contact'] = urlparse.unquote(msg['contact'])
     return msg
 
-def DateToTS(fmt):
-    def inner(msg):
-        dt = datetime.datetime.strptime(msg['timestamp'], fmt)
-        msg['timestamp'] = dt
-        return msg
-    return inner
+def DateTimer(msg):
+    dt = datetime.datetime.strptime(msg['timestamp'], "%d %b %Y %I:%M:%S %p")
+    msg['timestamp'] = dt
+    return msg
 
 def FloatTimestamp(msg):
     msg['timestamp'] = float(msg['timestamp'])
     return msg
 
-DateTimer = DateToTS("%d %b %Y %I:%M:%S %p")
-ISOTimer = DateToTS("%Y-%m-%d %H:%M:%S")
-DigsbyTimer = DateToTS("%Y-%m-%d %H:%M:%S")
+def ISOTimer(msg):
+    msg['timestamp'] = msg['timestamp'].replace(" ", "T")
+    return msg
 
 am_conv = {'AM': 0,'PM': 12, 'am': 0, 'pm': 12}
 def USATimer(ts):
@@ -161,10 +158,6 @@ def USATimer(ts):
 
 class Digsby(Parser):
 
-    def parse_file_name(self, filename):
-        # The contact name is written in the last folder, followed by _protocol
-        return "_".join(os.path.split(os.path.split(filename)[0])[1].split("_")[0:-1])
-
     regex = '<div class=".+? message" .+? timestamp="(.+?)"><span class="buddy">(.+?)</span> <span class="msgcontent">(.+?)</span>'
     filters = [HTMLParse, ISOTimer]
 
@@ -174,16 +167,10 @@ class Trillian(Parser):
         root, ext = os.path.splitext(filename)
         return ext == '.xml' and root[-7:] != "-assets"
 
-    def parse_file_name(self, filename):
-        return os.path.splitext(os.path.split(filename)[1])[0]
-
     regex = '<message type=".+?_privateMessage(?:Offline)?" time="(.+?)" ms=".+?" medium=".+?" to=".+?" from="(.+?)" from_display=".+?" text="(.+?)"/>'
     filters = [Unquote, FloatTimestamp, HTMLParse]
 
 class Pidgin(Parser):
-
-    def parse_file_name(self, filename):
-        return os.path.split(os.path.split(filename)[0])[1]
 
     regex = '<font color=".+?"><font size="2">\((\d\d:\d\d\:\d\d [AP]M)\)</font> <b>(.+?):</b></font>(.+?)<br/>'
     filters = [DateTimer, HTMLParse]
@@ -220,11 +207,6 @@ def NameToDate(line):
         raise e
 
 class Whatsapp(Parser):
-
-    def parse_file_name(self, filename):
-        """Filename is of the form with "WhatsApp Chat with NAME.txt"""""
-        # Not on iOS backups
-        return filename[30:].split(".")[0]
 
     regex = '^(\d{1,2}/\d{1,2}/\d{2,4},? \d{1,2}:\d{2}(?::\d{2})?(?: [AP]M)?)(?: -|:) (.+?): (.+?)$'
 
@@ -394,12 +376,9 @@ if __name__ == "__main__":
     for contact, text in Trillian("./data/raw/Trillian"):
         messages[frozenset(contact)].append(text)
     print("Trillian")
-    for contact, text in Trillian("./data/raw/Trillian2"):
-        messages[frozenset(contact)].append(text)
-    print("Trillian2")
-    for contact, text in Pidgin("./data/raw/Pidgin"):
-        messages[frozenset(contact)].append(text)
-    print("Pidgin")
+    # for contact, text in Pidgin("./data/raw/Pidgin"):
+    #     messages[frozenset(contact)].append(text)
+    # print("Pidgin")
     # for contact, text in Whatsapp("./data/raw/Whatsapp"):
     #     messages[frozenset(contact)].append(text)
     # print("Whatsapp")
@@ -408,9 +387,9 @@ if __name__ == "__main__":
     # print("Facebook")
     # for contact, text in Hangouts(files=["./data/raw/Hangouts/Hangouts.json"]):
     #     messages[frozenset(contact)].append(text)
-    # for contact in messages:
-    #     messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
-    #     messages[contact].sort(key=lambda x: x['timestamp'])
+    for contact in messages:
+        messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
+        messages[contact].sort(key=lambda x: x['timestamp'])
     total = 0
     for k in messages:
         # print(k, len(messages[k]))
