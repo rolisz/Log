@@ -285,13 +285,17 @@ class Facebook(Parser):
         for filename in self.files():
             with open(filename) as f:
                 file_content = f.read()
-            soup = etree.HTML(file_content)
-            logging.info("Finished loading HTML file %s", filename)
-            threads = soup.cssselect('div.thread')
-            for thread in threads:
-                result = self.parse_thread(thread)
-                if result:
+                for result in self.parse_file(file_content):
                     yield result
+                logging.info("Finished loading HTML file %s", filename)
+
+    def parse_file(self, content):
+        soup = etree.HTML(content)
+        threads = soup.cssselect('div.thread')
+        for thread in threads:
+            result = self.parse_thread(thread)
+            if result:
+                yield result
 
     def parse_thread(self, thread):
         it = iter(thread.getchildren())
