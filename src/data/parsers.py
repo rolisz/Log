@@ -379,7 +379,7 @@ class Hangouts(Parser):
                         'source': 'Hangouts',
                         'nick': sender,
                     })
-        return participants.values(), messages
+        return set(participants.values()), messages
 
 
 if __name__ == "__main__":
