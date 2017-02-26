@@ -385,6 +385,40 @@ class Hangouts(Parser):
                     })
         return set(participants.values()), messages
 
+class Viber(Parser):
+
+    # Todo: deal with Me name
+    def parse_file(self, lines):
+        messages = []
+        contacts = set()
+        message = {'message': []}
+        for line in lines:
+            print(line)
+            try:
+                date, time, sender, phone_nr, msg = line.split(",", 4)
+            except:
+                message['message'].append(msg)
+                continue
+            message['message'] = "\n".join(message['message'])
+            contacts.add(sender)
+            message = {
+                'message': [msg],
+                'timestamp': self.getTime(date,time),
+                'contact': sender,
+                'protocol': 'Viber',
+                'source': 'Viber',
+                'nick': sender,
+            }
+            messages.append(message)
+        message['message'] = "\n".join(message['message'])
+        return contacts, messages
+
+    def getTime(self, date, time):
+        day, month, year = date.split("/")
+        hour, minute, second = time[:9].split(":")
+        day, month, year, second = int(day), int(month), int(year), int(second)
+        hour, minute = int(hour) % 12 + am_conv[time[-2:]], int(minute)
+        return datetime.datetime(year, month, day, hour, minute, second).isoformat()
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
@@ -392,9 +426,9 @@ if __name__ == "__main__":
     # for contact, text in Digsby("./data/raw/Digsby Logs"):
     #     messages[frozenset(contact)].append(text)
     # print("Digsby")
-    for contact, text in Trillian("./data/raw/Trillian"):
-        messages[frozenset(contact)].append(text)
-    print("Trillian")
+    # for contact, text in Trillian("./data/raw/Trillian"):
+    #     messages[frozenset(contact)].append(text)
+    # print("Trillian")
     # for contact, text in Pidgin("./data/raw/Pidgin"):
     #     messages[frozenset(contact)].append(text)
     # print("Pidgin")
@@ -407,6 +441,9 @@ if __name__ == "__main__":
     # for contact, text in Hangouts(files=["./data/raw/Hangouts/Hangouts.json"]):
     #     messages[frozenset(contact)].append(text)
     # print("Hangouts")
+    for contact, text in Viber("./data/raw/Viber"):
+        messages[frozenset(contact)].append(text)
+    print("Viber")
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
