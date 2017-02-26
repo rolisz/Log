@@ -1,6 +1,7 @@
 import os
 import warnings
 import re
+import html
 import logging
 import json
 import datetime
@@ -61,11 +62,10 @@ class Parser(object):
                 message['nick'] = message['contact']
 
                 contacts.add(message['contact'])
-                try:
+                if type(message['timestamp']) == float:
                     message['timestamp'] = datetime.datetime.fromtimestamp(message['timestamp'])
+                if type(message['timestamp']) == datetime.datetime:
                     message['timestamp'] = message['timestamp'].isoformat()
-                except:
-                    pass
                 messages.append(message)
             except Exception as e:
                 logging.warning("Error in file %s at line %s: %s because %s", f.name,
@@ -111,6 +111,16 @@ class Parser(object):
 warnings.filterwarnings('ignore', ".+ looks like a URL. Beautiful Soup is not an HTTP client. .*")
 warnings.filterwarnings('ignore', ".+ looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful .*")
 
+def DigsbyParser(msg):
+    orig = msg['message']
+    # Stupid hack for Yahoo emoticon that got XML-ified
+    text = msg['message'].replace("<:-p></:-p>", "PRTY_EMOJI")
+    soup = etree.HTML(text)
+    if soup is not None:
+        msg['message'] = soup.xpath("string()")
+    msg['message'] = msg['message'].replace("PRTY_EMOJI", "<:-p")
+    return msg
+
 def HTMLParse(msg):
     soup = BeautifulSoup(msg['message'], 'html.parser')
     msg['message'] = soup.get_text()
@@ -119,6 +129,10 @@ def HTMLParse(msg):
 def Unquote(msg):
     msg['message'] = urlparse.unquote(msg['message'])
     msg['contact'] = urlparse.unquote(msg['contact'])
+    return msg
+
+def HTMLEscaper(msg):
+    msg['message'] = html.unescape(msg['message'])
     return msg
 
 def DateTimer(msg):
@@ -159,7 +173,7 @@ def USATimer(ts):
 class Digsby(Parser):
 
     regex = '<div class=".+? message" .+? timestamp="(.+?)"><span class="buddy">(.+?)</span> <span class="msgcontent">(.+?)</span>'
-    filters = [HTMLParse, ISOTimer]
+    filters = [DigsbyParser, ISOTimer]
 
 class Trillian(Parser):
 
@@ -168,7 +182,8 @@ class Trillian(Parser):
         return ext == '.xml' and root[-7:] != "-assets"
 
     regex = '<message type=".+?_privateMessage(?:Offline)?" time="(.+?)" ms=".+?" medium=".+?" to=".+?" from="(.+?)" from_display=".+?" text="(.+?)"/>'
-    filters = [Unquote, FloatTimestamp, HTMLParse]
+    # filters = [Unquote, FloatTimestamp, HTMLParse]
+    filters = [Unquote, FloatTimestamp, HTMLEscaper]
 
 class Pidgin(Parser):
 
@@ -370,9 +385,9 @@ class Hangouts(Parser):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
     messages = collections.defaultdict(list)
-    for contact, text in Digsby("./data/raw/Digsby Logs"):
-        messages[frozenset(contact)].append(text)
-    print("Digsby")
+    # for contact, text in Digsby("./data/raw/Digsby Logs"):
+    #     messages[frozenset(contact)].append(text)
+    # print("Digsby")
     for contact, text in Trillian("./data/raw/Trillian"):
         messages[frozenset(contact)].append(text)
     print("Trillian")
@@ -387,6 +402,7 @@ if __name__ == "__main__":
     # print("Facebook")
     # for contact, text in Hangouts(files=["./data/raw/Hangouts/Hangouts.json"]):
     #     messages[frozenset(contact)].append(text)
+    # print("Hangouts")
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
