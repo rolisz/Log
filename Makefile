@@ -12,6 +12,7 @@ PIDGIN?="./data/raw/Pidgin"
 YAHOO?="./data/raw/Yahoo"
 WHATSAPP?="./data/raw/Whatsapp"
 HANGOUTS?="./data/raw/Hangouts"
+VIBER?="./data/raw/Viber"
 SQLITE?="./data/processed/messages.db"
 SELF_NAME?="Roland Szabo"
 
@@ -29,8 +30,8 @@ $(SQLITE): facebook_clean
 	python -m src.data.sqlite_importer --facebook_path $(FACEBOOK) \
 		--trillian_path $(TRILLIAN) --pidgin_path $(PIDGIN) \
 		--digsby_path $(DIGSBY) --whatsapp_path $(WHATSAPP) \
-		--hangouts_path $(HANGOUTS) --self_name=$(SELF_NAME) \
-		--clean_table $(SQLITE)
+		--hangouts_path $(HANGOUTS) --viber_path $(VIBER) \
+		--self_name=$(SELF_NAME) --clean_table $(SQLITE)
 
 clean:
 	find . -name "*.pyc" -exec rm {} \;

@@ -151,6 +151,7 @@ def ISOTimer(msg):
 am_conv = {'AM': 0,'PM': 12, 'am': 0, 'pm': 12}
 def USATimer(ts):
     ts = ts.replace(',', '')
+    ts = ts.replace('.', '/')
     if ts.count(" ") == 2:
         # %m/%d/%Y %I:%M %p
         date, time, am = ts.split(" ")
@@ -223,7 +224,7 @@ def NameToDate(line):
 
 class Whatsapp(Parser):
 
-    regex = '^(\d{1,2}/\d{1,2}/\d{2,4},? \d{1,2}:\d{2}(?::\d{2})?(?: [AP]M)?)(?: -|:) (.+?): (.+?)$'
+    regex = '^(\d{1,2}[/.]\d{1,2}[/.]\d{2,4},? \d{1,2}:\d{2}(?::\d{2})?(?: [AP]M)?)(?: -|:) (.+?): (.+?)$'
 
     def parse_file(self, f):
         messages = []
@@ -233,6 +234,7 @@ class Whatsapp(Parser):
             line = NameToDate(line)
             match = re.match(self.regex, line)
             if not match:
+                print(line)
                 try:
                     # message['message'] += "\n"+line
                     message['message'].append(line)
@@ -254,6 +256,7 @@ class Whatsapp(Parser):
                 contacts.add(message['contact'])
                 messages.append(message)
             except Exception as e:
+                print(e.stacktrace)
                 logging.warning("Error in file %s at line %s: %s", f.name,
                                 line, str(e))
         message['message'] = "\n".join(message['message'])
@@ -432,24 +435,25 @@ if __name__ == "__main__":
     # for contact, text in Pidgin("./data/raw/Pidgin"):
     #     messages[frozenset(contact)].append(text)
     # print("Pidgin")
-    # for contact, text in Whatsapp("./data/raw/Whatsapp"):
-    #     messages[frozenset(contact)].append(text)
-    # print("Whatsapp")
+    for contact, text in Whatsapp("/home/rolisz/Downloads/drive-download-20170305T170015Z-001/WhatsApp Chat - Roda/"):
+        messages[frozenset(contact)].append(text)
+    print("Whatsapp")
     # for contact, text in Facebook(files=["./data/interim/Facebook/cleaned.html"]):
     #     messages[frozenset(contact)].append(text)
     # print("Facebook")
     # for contact, text in Hangouts(files=["./data/raw/Hangouts/Hangouts.json"]):
     #     messages[frozenset(contact)].append(text)
     # print("Hangouts")
-    for contact, text in Viber("./data/raw/Viber"):
-        messages[frozenset(contact)].append(text)
-    print("Viber")
+    # for contact, text in Viber("./data/raw/Viber"):
+    #     messages[frozenset(contact)].append(text)
+    # print("Viber")
     for contact in messages:
         messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
     total = 0
     for k in messages:
-        # print(k, len(messages[k]))
+        if len(messages[k])> 10:
+            print(k, len(messages[k]))
         total += len(messages[k])
     print(total)
     # f = open("./logs/messages.json", "w")
