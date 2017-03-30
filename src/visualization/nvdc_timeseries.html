@@ -21,7 +21,7 @@
         if (error) {
             return console.warn(error);
         }
-        data = json["Roda"]
+        data = json["Person"]
         data.forEach(function (d) {
             d.dd = dateFormat.parse(d.timestamp);
             d.month = d3.time.month(d.dd); // pre-calculate month for better performance
@@ -44,7 +44,7 @@
 		month_lengths = moveMonths.group().reduceSum(function(d) { return d.length})
 		day_lengths = moveDays.group().reduceSum(function(d) { return d.length})
         hour_lengths = moveHours.group().reduceSum(function(d) { return d.length})
-        data = [{values: day_lengths.all(), key: "Ruxi" , color:"#ff7f0e"}]
+        data = [{values: day_lengths.all(), key: "Person" , color:"#ff7f0e"}]
         /*These lines are all chart setup.  Pick and choose which chart features you want to utilize. */
         nv.addGraph(function() {
         var chart = nv.models.lineChart()

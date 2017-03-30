@@ -36,7 +36,6 @@ import mappings
 # print(messages)
 # for k in messages:
 #     print k, len(messages[k])
-# print(messages['Eliza'])
 # f = open("./logs/messages.json", "w")
 # json.dump(messages, f, indent=2, ensure_ascii=False)
 # f.close()

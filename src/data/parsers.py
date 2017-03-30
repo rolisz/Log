@@ -435,9 +435,6 @@ if __name__ == "__main__":
     # for contact, text in Pidgin("./data/raw/Pidgin"):
     #     messages[frozenset(contact)].append(text)
     # print("Pidgin")
-    for contact, text in Whatsapp("/home/rolisz/Downloads/drive-download-20170305T170015Z-001/WhatsApp Chat - Roda/"):
-        messages[frozenset(contact)].append(text)
-    print("Whatsapp")
     # for contact, text in Facebook(files=["./data/interim/Facebook/cleaned.html"]):
     #     messages[frozenset(contact)].append(text)
     # print("Facebook")
