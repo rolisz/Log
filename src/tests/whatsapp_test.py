@@ -19,6 +19,8 @@ Message
 
 Is
 Long""".splitlines()
+
+
 class WhatsappTest(unittest.TestCase):
 
     def setUp(self):
@@ -58,5 +60,3 @@ class WhatsappTest(unittest.TestCase):
         self.assertEqual(len(lines), 1)
         self.assertEqual(lines[0]['timestamp'], "2016-11-11T23:37:55")
         self.assertEqual(lines[0]['message'], "Long\nMessage\n\nIs\nLong")
-
-

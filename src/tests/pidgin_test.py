@@ -12,6 +12,7 @@ conv = """<html><head><meta http-equiv="content-type" content="text/html; charse
 </body></html>
 """
 
+
 class PidginTest(unittest.TestCase):
 
     def setUp(self):
@@ -23,7 +24,8 @@ class PidginTest(unittest.TestCase):
         contacts, lines = self.pidgin.parse_file(fake)
         # Person 2 has address in messages. If ever changed to take contacts
         # from header, this test should change
-        self.assertSetEqual(contacts, {"Person 1", "person2@gmail.com/09AC6EA0"})
+        self.assertSetEqual(contacts,
+                            {"Person 1", "person2@gmail.com/09AC6EA0"})
         self.assertEqual(len(lines), 6)
         # Has space prefix because of inline HTML. If ever looking into doing it
         # more correctly, this can go away too.

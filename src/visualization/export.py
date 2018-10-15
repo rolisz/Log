@@ -1,7 +1,7 @@
 if __package__ is None:
     import sys
     from os import path
-    sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 import conversation
 import parsers
@@ -24,9 +24,9 @@ for k in messages:
     data[k] = {}
     timestamps = collections.defaultdict(int)
     for x in messages[k]:
-        isofmt =x['timestamp']
+        isofmt = x['timestamp']
         timestamps[isofmt] += len(x['message'])
-    data[k] = [{'timestamp': k, 'length': v} for k,v  in timestamps.items()]
+    data[k] = [{'timestamp': k, 'length': v} for k, v in timestamps.items()]
     data[k] = sorted(data[k], key=lambda x: x['timestamp'])
 
 json.dump(data, output_file, indent=2)
