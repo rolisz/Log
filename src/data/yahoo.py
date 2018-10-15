@@ -2,20 +2,26 @@ from itertools import cycle
 import datetime
 import binascii
 
+
 def xor(message, username):
     xord = []
-    for a,b in zip(message, cycle(username)):
-        xord.append(a^ord(b))
+    for a, b in zip(message, cycle(username)):
+        xord.append(a ^ ord(b))
     return ''.join([chr(a) for a in xord])
+
 
 def xore(data, key):
     return ''.join(chr(a ^ ord(b)) for (a, b) in zip(data, cycle(key)))
 
+
 def byteInt(b):
     return int.from_bytes(b, byteorder='big')
 
+
 def byteDate(b):
     return int.from_bytes(b, byteorder='little')
+
+
 if __name__ == "__main__":
     with open("./Yahoo/20090410-rolisz.dat", "rb") as f:
         messages = []
@@ -45,11 +51,11 @@ if __name__ == "__main__":
             message = xore(message, username)
             fixedBytes = f.read(16)
             contact = 'other' if direction else 'Roland'
-            messages.append({'timestamp': dates, 'contact': contact,
-                'message': message})
-
+            messages.append({
+                'timestamp': dates,
+                'contact': contact,
+                'message': message
+            })
 
 for m in messages:
     print(m['timestamp'])
-
-

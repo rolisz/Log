@@ -16,6 +16,8 @@ emojiLink = """<session type="start" time="1385563393" ms="559" medium="YAHOO" t
 <message type="outgoing_privateMessage" time="1346082561" ms="403" medium="YAHOO" to="Person 2" from="Person 1" from_display="Person 1" text="%3Ca%20href%3D%22http%3A%2F%2Fft%2Etrillian%2Eim%2F9e886c8deecf9ddc8aa38574089a032bdffe6ed5%2F6aexnjVRefl8Szc1Jo224sOujL283%2Ejpg%22%3Ehttp%3A%2F%2Fft%2Etrillian%2Eim%2F9e886c8deecf9ddc8aa38574089a032bdffe6ed5%2F6aexnjVRefl8Szc1Jo224sOujL283%2Ejpg%3C%2Fa%3E"/>
 <session type="stop" time="1385567767" medium="YAHOO" to="Person 1" from="Person 2"/>
 """
+
+
 class TrillianTest(unittest.TestCase):
 
     def setUp(self):
@@ -43,4 +45,7 @@ class TrillianTest(unittest.TestCase):
         self.assertEqual(lines[1]['message'], "<:-p")
         self.assertEqual(lines[2]['message'], ">:D<")
         # This can be also just the link, with the anchor tag stripped
-        self.assertEqual(lines[3]['message'], '<a href="http://ft.trillian.im/9e886c8deecf9ddc8aa38574089a032bdffe6ed5/6aexnjVRefl8Szc1Jo224sOujL283.jpg">http://ft.trillian.im/9e886c8deecf9ddc8aa38574089a032bdffe6ed5/6aexnjVRefl8Szc1Jo224sOujL283.jpg</a>')
+        self.assertEqual(
+            lines[3]['message'],
+            '<a href="http://ft.trillian.im/9e886c8deecf9ddc8aa38574089a032bdffe6ed5/6aexnjVRefl8Szc1Jo224sOujL283.jpg">http://ft.trillian.im/9e886c8deecf9ddc8aa38574089a032bdffe6ed5/6aexnjVRefl8Szc1Jo224sOujL283.jpg</a>'
+        )

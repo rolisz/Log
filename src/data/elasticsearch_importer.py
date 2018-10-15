@@ -49,6 +49,7 @@ rows = cur.fetchall()
 # Define a default Elasticsearch client
 connections.create_connection(hosts=['localhost'])
 
+
 class Message(DocType):
     message = String()
     contact = String(index="not_analyzed")
@@ -65,24 +66,26 @@ class Message(DocType):
     class Meta:
         index = 'chat'
 
-    def save(self, ** kwargs):
+    def save(self, **kwargs):
         self.length = len(self.message)
-        return super(Message, self).save(** kwargs)
+        return super(Message, self).save(**kwargs)
+
 
 # create the mappings in elasticsearch
 Message.init()
 es = Elasticsearch()
 
+
 def lines():
     for row in rows:
         d = {k: row[k] for k in row.keys()}
         d['_op_type'] = 'index'
-        d['_index']= 'chat'
-        d['_type']= 'message'
+        d['_index'] = 'chat'
+        d['_type'] = 'message'
         yield d
 
 
-bulk(es,lines())
+bulk(es, lines())
 
 # Display cluster health
 print(connections.get_connection().cluster.health())

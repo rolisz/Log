@@ -2,7 +2,9 @@ import logging
 import collections
 import datetime
 
-Message = collections.namedtuple('Message', ['datetime', 'contact', 'sender', 'message'])
+Message = collections.namedtuple('Message',
+                                 ['datetime', 'contact', 'sender', 'message'])
+
 
 class Conversation(object):
 
@@ -22,7 +24,8 @@ class Conversation(object):
         prev_timestamp = 0
         curr_conv = []
         for message in self.messages:
-            ts = time.mktime(time.strptime(message.datetime, '%Y-%m-%dT%H:%M:%S'))
+            ts = time.mktime(
+                time.strptime(message.datetime, '%Y-%m-%dT%H:%M:%S'))
             if ts - prev_timestamp > break_length:
                 if len(curr_conv):  # Should be empty only for the first list
                     conv.append(Conversation(curr_conv, self.me))
@@ -91,7 +94,8 @@ class Conversation(object):
         return days
 
     def __str__(self):
-        return "Participants: %s. Messages: %s" % (self.participants, len(self.messages))
+        return "Participants: %s. Messages: %s" % (self.participants,
+                                                   len(self.messages))
 
     __repr__ = __str__
 
@@ -100,14 +104,17 @@ class Conversation(object):
         gaps = self.gaps()
         if len(gaps) == 0:
             return 0
-        return sum(gaps)/len(gaps)
+        return sum(gaps) / len(gaps)
 
     def gaps(self):
         gaps = []
         for i in range(1, len(self.messages)):
-            ts1 = time.mktime(time.strptime(self.messages[i-1].datetime, '%Y-%m-%dT%H:%M:%S'))
-            ts2 = time.mktime(time.strptime(self.messages[i].datetime, '%Y-%m-%dT%H:%M:%S'))
-            gaps.append(ts2-ts1)
+            ts1 = time.mktime(
+                time.strptime(self.messages[i - 1].datetime,
+                              '%Y-%m-%dT%H:%M:%S'))
+            ts2 = time.mktime(
+                time.strptime(self.messages[i].datetime, '%Y-%m-%dT%H:%M:%S'))
+            gaps.append(ts2 - ts1)
         return gaps
 
     def starters(self):

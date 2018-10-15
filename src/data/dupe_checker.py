@@ -6,14 +6,14 @@ import itertools
 import json
 from datetime import datetime
 
-
 con = sqlite3.connect("./data/processed/messages.db")
 c = con.cursor()
-l = c.execute("select * from messages where contact IN (select contact from messages group by"
-                " contact having count(contact) > 5000)")
-messages =  [{l.description[i][0]: v for i, v in enumerate(row)}
-                for row in l.fetchall()]
-
+l = c.execute(
+    "select * from messages where contact IN (select contact from messages group by"
+    " contact having count(contact) > 5000)")
+messages = [
+    {l.description[i][0]: v for i, v in enumerate(row)} for row in l.fetchall()
+]
 
 for k, g in itertools.groupby(messages, lambda msg: msg['contact']):
     g = list(g)
@@ -27,7 +27,7 @@ for k, g in itertools.groupby(messages, lambda msg: msg['contact']):
             or sum(c.isalnum() for c in msg['message']) < 2:
             continue
         key = (msg['datetime'][:16], msg['sender'], msg['message'])
-        if  key in h:
+        if key in h:
             h[key].append((msg['datetime'], msg['message'], msg['source']))
             dupes += 1
         else:
@@ -45,6 +45,5 @@ for k, g in itertools.groupby(messages, lambda msg: msg['contact']):
     # pprint(daily_map)
     print(len(daily_map))
     print(sum(len(daily_map[k]) for k in daily_map))
-
 
     # pprint(h)

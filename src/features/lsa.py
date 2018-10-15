@@ -6,33 +6,36 @@ from gensim.models import lsimodel
 __author__ = 'Roland'
 import yaml
 from collections import defaultdict
-from  pprint import pprint
+from pprint import pprint
 import os
 import time
-from multiprocessing import Process, Queue,Pool
+from multiprocessing import Process, Queue, Pool
 from Queue import Empty
+
 
 def useThreads():
     files = os.listdir(folder)
     pool = Pool(processes=7)
-    temp = pool.map(parseFile,files)
+    temp = pool.map(parseFile, files)
     results = []
     for t in temp:
         for r in t:
             results.append(r)
     return results
 
+
 def parseFile(file):
-    f = open("logs//"+file)
+    f = open("logs//" + file)
     conversation = []
     for message in yaml.load_all(f.read()):
         reply = message[2].lower().split()
         wordlike = []
         for entity in reply:
-            if re.match('[a-zA-Z0-9]',entity):
+            if re.match('[a-zA-Z0-9]', entity):
                 wordlike.append(entity)
         conversation.append(wordlike)
     return conversation
+
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -57,10 +60,11 @@ if __name__ == '__main__':
             corpus_tfidf = pickle.load(input)
         with open('models//dictionary.pickle', 'rb') as input:
             dictionary = pickle.load(input)
-    lsimodel = lsimodel.LsiModel(corpus_tfidf, id2word=dictionary, num_topics=300)
+    lsimodel = lsimodel.LsiModel(
+        corpus_tfidf, id2word=dictionary, num_topics=300)
     corpus_lsi = lsimodel[corpus_tfidf]
-#    lda = models.ldamodel.LdaModel(corpus=corpus_tfidf, id2word=dictionary, num_topics=300, update_every=1, chunksize=10000, passes=1)
-#    lda.save("models//lda.pickle")
+    #    lda = models.ldamodel.LdaModel(corpus=corpus_tfidf, id2word=dictionary, num_topics=300, update_every=1, chunksize=10000, passes=1)
+    #    lda.save("models//lda.pickle")
     # hdp = models.hdpmodel.HdpModel(corpus_tfidf, id2word=dictionary)
     # hdp.save("models//hdp.pickle")
     # hdp.update_expectations()

@@ -17,6 +17,7 @@ conv = """<?xml version="1.0" encoding="UTF-8"?>
 <div class="incoming message" auto="False" timestamp="2011-12-25 20:59:54"><span class="buddy">-person1@chat.facebook.com</span> <span class="msgcontent">&gt;:D&lt;</span></div>
 """
 
+
 class DigsbyTest(unittest.TestCase):
 
     def setUp(self):
@@ -26,7 +27,9 @@ class DigsbyTest(unittest.TestCase):
         fake = io.StringIO(conv)
         fake.name = "me@facebook.com"
         contacts, lines = self.digsby.parse_file(fake)
-        self.assertSetEqual(contacts, {"-person1@chat.facebook.com", "person2@chat.facebook.com"})
+        self.assertSetEqual(
+            contacts,
+            {"-person1@chat.facebook.com", "person2@chat.facebook.com"})
         self.assertEqual(len(lines), 4)
         self.assertEqual(lines[0]['message'], "serus")
         self.assertEqual(lines[1]['contact'], "person2@chat.facebook.com")

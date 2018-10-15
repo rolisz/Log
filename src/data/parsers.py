@@ -18,6 +18,7 @@ import itertools
 
 
 class Parser(object):
+
     def __init__(self, folder=None, files=None):
         self.folder = folder
         self.file_list = files
@@ -37,7 +38,7 @@ class Parser(object):
                 continue
             try:
                 message = {
-                    'timestamp':match.groups()[0],
+                    'timestamp': match.groups()[0],
                     'contact': match.groups()[1],
                     'message': match.groups()[2],
                     'source': self.__class__.__name__
@@ -63,13 +64,14 @@ class Parser(object):
 
                 contacts.add(message['contact'])
                 if type(message['timestamp']) == float:
-                    message['timestamp'] = datetime.datetime.fromtimestamp(message['timestamp'])
+                    message['timestamp'] = datetime.datetime.fromtimestamp(
+                        message['timestamp'])
                 if type(message['timestamp']) == datetime.datetime:
                     message['timestamp'] = message['timestamp'].isoformat()
                 messages.append(message)
             except Exception as e:
-                logging.warning("Error in file %s at line %s: %s because %s", f.name,
-                                line, str(e), traceback.format_exc())
+                logging.warning("Error in file %s at line %s: %s because %s",
+                                f.name, line, str(e), traceback.format_exc())
         if len(messages) == 0:
             return
         return contacts, messages
@@ -108,8 +110,14 @@ class Parser(object):
                 logging.warning("Can't open file %s: %s", f, str(e))
                 continue
 
-warnings.filterwarnings('ignore', ".+ looks like a URL. Beautiful Soup is not an HTTP client. .*")
-warnings.filterwarnings('ignore', ".+ looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful .*")
+
+warnings.filterwarnings(
+    'ignore', ".+ looks like a URL. Beautiful Soup is not an HTTP client. .*")
+warnings.filterwarnings(
+    'ignore',
+    ".+ looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful .*"
+)
+
 
 def DigsbyParser(msg):
     orig = msg['message']
@@ -121,34 +129,43 @@ def DigsbyParser(msg):
     msg['message'] = msg['message'].replace("PRTY_EMOJI", "<:-p")
     return msg
 
+
 def HTMLParse(msg):
     soup = BeautifulSoup(msg['message'], 'html.parser')
     msg['message'] = soup.get_text()
     return msg
+
 
 def Unquote(msg):
     msg['message'] = urlparse.unquote(msg['message'])
     msg['contact'] = urlparse.unquote(msg['contact'])
     return msg
 
+
 def HTMLEscaper(msg):
     msg['message'] = html.unescape(msg['message'])
     return msg
+
 
 def DateTimer(msg):
     dt = datetime.datetime.strptime(msg['timestamp'], "%d %b %Y %I:%M:%S %p")
     msg['timestamp'] = dt
     return msg
 
+
 def FloatTimestamp(msg):
     msg['timestamp'] = float(msg['timestamp'])
     return msg
+
 
 def ISOTimer(msg):
     msg['timestamp'] = msg['timestamp'].replace(" ", "T")
     return msg
 
-am_conv = {'AM': 0,'PM': 12, 'am': 0, 'pm': 12}
+
+am_conv = {'AM': 0, 'PM': 12, 'am': 0, 'pm': 12}
+
+
 def USATimer(ts):
     ts = ts.replace(',', '')
     ts = ts.replace('.', '/')
@@ -171,10 +188,12 @@ def USATimer(ts):
         hour, minute, second = int(hour), int(minute), int(second)
     return datetime.datetime(year, month, day, hour, minute, second)
 
+
 class Digsby(Parser):
 
     regex = '<div class=".+? message" .+? timestamp="(.+?)"><span class="buddy">(.+?)</span> <span class="msgcontent">(.+?)</span>'
     filters = [DigsbyParser, ISOTimer]
+
 
 class Trillian(Parser):
 
@@ -186,6 +205,7 @@ class Trillian(Parser):
     # filters = [Unquote, FloatTimestamp, HTMLParse]
     filters = [Unquote, FloatTimestamp, HTMLEscaper]
 
+
 class Pidgin(Parser):
 
     regex = '<font color=".+?"><font size="2">\((\d\d:\d\d\:\d\d [AP]M)\)</font> <b>(.+?):</b></font>(.+?)<br/>'
@@ -194,23 +214,29 @@ class Pidgin(Parser):
     def parse_file(self, f):
         head = f.readline()
         try:
-            date = re.search('at [^ ]+ (\d{2} [a-zA-Z]* \d{4}) \d{2}:\d{2}:\d{2} [AP]M EEST', head).group(1)
+            date = re.search(
+                'at [^ ]+ (\d{2} [a-zA-Z]* \d{4}) \d{2}:\d{2}:\d{2} [AP]M EEST',
+                head).group(1)
         except AttributeError:
             logging.error("Couldn't find date in line %s", head)
         old_filters = self.filters[:]
+
         def correct_date(msg):
             msg['timestamp'] = "%s %s" % (date, msg['timestamp'])
             return msg
+
         self.filters.insert(0, correct_date)
         messages = super(Pidgin, self).parse_file(f)
         self.filters = old_filters
         return messages
 
+
 def NameToDate(line):
     if len(line) < 8:
         return line
     try:
-        if line[0:2].isalpha() and line[4].isdigit() and (line[7].isdigit() or line[8].isdigit()):
+        if line[0:2].isalpha() and line[4].isdigit() and (line[7].isdigit() or
+                                                          line[8].isdigit()):
             sp = line.split(",", 1)
             date = datetime.datetime.strptime(sp[0], "%b %d")
             date = date.replace(year=2015)
@@ -221,6 +247,7 @@ def NameToDate(line):
         print(line)
         print(len(line))
         raise e
+
 
 class Whatsapp(Parser):
 
@@ -257,8 +284,8 @@ class Whatsapp(Parser):
                 messages.append(message)
             except Exception as e:
                 print(e.stacktrace)
-                logging.warning("Error in file %s at line %s: %s", f.name,
-                                line, str(e))
+                logging.warning("Error in file %s at line %s: %s", f.name, line,
+                                str(e))
         message['message'] = "\n".join(message['message'])
         if len(messages) == 0:
             return "", []
@@ -268,9 +295,23 @@ class Whatsapp(Parser):
         root, ext = os.path.splitext(filename)
         return ext == '.txt'
 
-months = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June':6,
-        'July':7, 'August': 8, 'September': 9, 'October': 10, 'November': 11,
-        'December':12}
+
+months = {
+    'January': 1,
+    'February': 2,
+    'March': 3,
+    'April': 4,
+    'May': 5,
+    'June': 6,
+    'July': 7,
+    'August': 8,
+    'September': 9,
+    'October': 10,
+    'November': 11,
+    'December': 12
+}
+
+
 def parseDate(date):
     # "%A, %B %d, %Y at %I:%M%p"
     _, day, rest = date.split(",")
@@ -281,6 +322,7 @@ def parseDate(date):
     hour, minute = time[:-2].split(":")
     hour, minute = int(hour) % 12 + am_conv[time[-2:]], int(minute)
     return datetime.datetime(year, month, day, hour, minute, 0)
+
 
 class Facebook(Parser):
 
@@ -311,21 +353,23 @@ class Facebook(Parser):
                 user = header.cssselect('span.user')[0].text.strip()
                 contacts.add(user)
             except Exception as e:
-                logging.warning("Couldn't parse user %s because %s", etree.tostring(header), e)
-                errors +=1
+                logging.warning("Couldn't parse user %s because %s",
+                                etree.tostring(header), e)
+                errors += 1
                 continue
             try:
                 date = header.cssselect('span.meta')[0].text.strip()[:-7]
                 date = parseDate(date)
             except Exception as e:
                 logging.warning("Couldn't parse date %s because %s", header, e)
-                errors +=1
+                errors += 1
                 continue
             try:
                 message = message.text.strip()
             except Exception as e:
-                logging.warning("Couldn't parse message %s because %s", message, e)
-                errors +=1
+                logging.warning("Couldn't parse message %s because %s", message,
+                                e)
+                errors += 1
                 continue
             message = {
                 'timestamp': date,
@@ -341,6 +385,7 @@ class Facebook(Parser):
                 logging.error("Too many errors for %s", contacts)
                 break
         return contacts, reversed(messages)
+
 
 class Hangouts(Parser):
 
@@ -360,8 +405,8 @@ class Hangouts(Parser):
             if "fallback_name" in part:
                 participants[part["id"]["gaia_id"]] = part["fallback_name"]
             else:
-                participants[part["id"]["gaia_id"]] = ("Unknown_%s"
-                        % part["id"]["gaia_id"])
+                participants[part["id"]["gaia_id"]] = (
+                    "Unknown_%s" % part["id"]["gaia_id"])
 
         events = thread["conversation_state"]["event"]
 
@@ -372,12 +417,12 @@ class Hangouts(Parser):
                 sender = participants[gaia_id]
             else:
                 sender = "Unknown_%s" % gaia_id
-            date = datetime.datetime.fromtimestamp(float(event["timestamp"])/1000000)
+            date = datetime.datetime.fromtimestamp(
+                float(event["timestamp"]) / 1000000)
             if event["event_type"] == "REGULAR_CHAT_MESSAGE":
                 if "segment" in event["chat_message"]["message_content"]:
-                    message = " ".join(p["text"]
-                            for p in event["chat_message"]["message_content"]
-                                ["segment"] if "text" in p)
+                    message = " ".join(p["text"] for p in event["chat_message"][
+                        "message_content"]["segment"] if "text" in p)
                     messages.append({
                         'timestamp': date.isoformat(),
                         'contact': sender,
@@ -387,6 +432,7 @@ class Hangouts(Parser):
                         'nick': sender,
                     })
         return set(participants.values()), messages
+
 
 class Viber(Parser):
 
@@ -406,7 +452,7 @@ class Viber(Parser):
             contacts.add(sender)
             message = {
                 'message': [msg],
-                'timestamp': self.getTime(date,time),
+                'timestamp': self.getTime(date, time),
                 'contact': sender,
                 'protocol': 'Viber',
                 'source': 'Viber',
@@ -421,7 +467,9 @@ class Viber(Parser):
         hour, minute, second = time[:9].split(":")
         day, month, year, second = int(day), int(month), int(year), int(second)
         hour, minute = int(hour) % 12 + am_conv[time[-2:]], int(minute)
-        return datetime.datetime(year, month, day, hour, minute, second).isoformat()
+        return datetime.datetime(year, month, day, hour, minute,
+                                 second).isoformat()
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.WARNING)
@@ -445,11 +493,12 @@ if __name__ == "__main__":
     #     messages[frozenset(contact)].append(text)
     # print("Viber")
     for contact in messages:
-        messages[contact] = list(itertools.chain.from_iterable(messages[contact]))
+        messages[contact] = list(
+            itertools.chain.from_iterable(messages[contact]))
         messages[contact].sort(key=lambda x: x['timestamp'])
     total = 0
     for k in messages:
-        if len(messages[k])> 10:
+        if len(messages[k]) > 10:
             print(k, len(messages[k]))
         total += len(messages[k])
     print(total)

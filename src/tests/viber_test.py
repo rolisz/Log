@@ -6,6 +6,7 @@ conv = """06/10/2014,09:22:56 PM,Me,+001,Hey
 06/10/2014,09:24:16 PM,Me,+001,Good :d
 """.splitlines()
 
+
 class ViberTest(unittest.TestCase):
 
     def setUp(self):
