@@ -1,6 +1,6 @@
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
-from elasticsearch_dsl import DocType, String, Date, Integer
+from elasticsearch_dsl import DocType, Text, Date, Integer, Keyword
 from elasticsearch_dsl.connections import connections
 import logging
 import sqlite3
@@ -40,38 +40,50 @@ import mappings
 # json.dump(messages, f, indent=2, ensure_ascii=False)
 # f.close()
 
-conn = sqlite3.connect("data/interim/messages.db")
+conn = sqlite3.connect("data/processed/messages.db")
 
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
-cur.execute("SELECT * FROM messages")
+cur.execute("SELECT datetime, contact, sender, message FROM messages")
 rows = cur.fetchall()
 # Define a default Elasticsearch client
 connections.create_connection(hosts=['localhost'])
 
-class Message(DocType):
-    message = String()
-    contact = String(index="not_analyzed")
-    sender = String(index="not_analyzed")
-    datetime = Date()
-    source = String(index="not_analyzed")
-    protocol = String(index="not_analyzed")
-    nick = String(index="not_analyzed")
-    gender = String(index="not_analyzed")
-    length = Integer()
-    friendship = Integer()
-    age_group = Integer()
 
-    class Meta:
-        index = 'chat'
+# class Message(DocType):
+#     message = Text(fielddata=True)
+#     contact = Keyword(fielddata=True)
+#     sender = Keyword()
+#     datetime = Date()
+    # source = String(index="not_analyzed")
+    # protocol = String(index="not_analyzed")
+    # nick = String(index="not_analyzed")
+    # gender = String(index="not_analyzed")
+    # length = Integer()
+    # friendship = Integer()
+    # age_group = Integer()
 
-    def save(self, ** kwargs):
-        self.length = len(self.message)
-        return super(Message, self).save(** kwargs)
+    # class Meta:
+    #     index = 'chat'
 
-# create the mappings in elasticsearch
-Message.init()
-es = Elasticsearch()
+    # def save(self, ** kwargs):
+    #     self.length = len(self.message)
+    #     return super(Message, self).save(** kwargs)
+
+from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk
+es = Elasticsearch(['http://elastic:changeme@localhost:9200/'])
+es.indices.delete('chat')
+
+es.indices.create('chat', {"mappings" : {
+    "message" : {
+        "properties" : {
+            "message" : { "type" : "text",
+                'fielddata': True}
+                }
+        }
+    }
+})
 
 def lines():
     for row in rows:
@@ -84,5 +96,20 @@ def lines():
 
 bulk(es,lines())
 
-# Display cluster health
-print(connections.get_connection().cluster.health())
+# # create the mappings in elasticsearch
+# Message.init()
+# es = Elasticsearch()
+
+# def lines():
+#     for row in rows:
+#         d = {k: row[k] for k in row.keys()}
+#         d['_op_type'] = 'index'
+#         d['_index']= 'chat'
+#         d['_type']= 'message'
+#         yield d
+
+
+# bulk(es,lines())
+
+# # Display cluster health
+# print(connections.get_connection().cluster.health())
