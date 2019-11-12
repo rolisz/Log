@@ -42,7 +42,7 @@ simplegeneric==0.8.1
 six==1.10.0
 tornado==4.2.1
 traitlets==4.0.0
-urllib3==1.15.1
+urllib3==1.24.2
 vprof==0.30
 Werkzeug==0.10.4
 whichcraft==0.4.0
