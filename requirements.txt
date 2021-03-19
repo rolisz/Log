@@ -18,7 +18,7 @@ future==0.15.2
 ipython==4.0.0
 ipython-genutils==0.1.0
 itsdangerous==0.24
-Jinja2==2.8
+Jinja2==2.11.3
 jinja2-time==0.2.0
 langdetect==1.0.6
 langid==1.1.6
