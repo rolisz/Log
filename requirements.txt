@@ -24,7 +24,7 @@ langdetect==1.0.6
 langid==1.1.6
 lxml==3.5.0
 MarkupSafe==0.23
-numpy==1.10.1
+numpy==1.22.0
 pandas==0.17.0
 path.py==8.1.2
 pexpect==4.0.1
